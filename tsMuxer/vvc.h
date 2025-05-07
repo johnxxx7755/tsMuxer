@@ -1,5 +1,5 @@
-#ifndef __VVC_H_
-#define __VVC_H_
+#ifndef VVC_H_
+#define VVC_H_
 
 #include "nalUnits.h"
 
@@ -7,23 +7,18 @@ struct VvcHrdUnit
 {
     VvcHrdUnit();
 
-   public:
     unsigned num_units_in_tick;
     unsigned time_scale;
     bool general_nal_hrd_params_present_flag;
     bool general_vcl_hrd_params_present_flag;
     bool general_du_hrd_params_present_flag;
-    int hrd_cpb_cnt_minus1;
+    unsigned hrd_cpb_cnt_minus1;
 };
 
 struct VvcUnit
 {
-    VvcUnit()
-        : nal_unit_type(), nuh_layer_id(0), nuh_temporal_id_plus1(0), m_nalBuffer(0), m_nalBufferLen(0), m_reader()
-    {
-    }
+    VvcUnit() : nal_unit_type(), nuh_layer_id(0), nuh_temporal_id_plus1(0), m_nalBuffer(nullptr), m_nalBufferLen(0) {}
 
-   public:
     enum class NalType
     {
         TRAIL = 0,
@@ -51,81 +46,76 @@ struct VvcUnit
 
     void decodeBuffer(const uint8_t* buffer, const uint8_t* end);
     int deserialize();
-    int serializeBuffer(uint8_t* dstBuffer, uint8_t* dstEnd) const;
+    int serializeBuffer(uint8_t* dstBuffer, const uint8_t* dstEnd) const;
 
-    int nalBufferLen() const { return m_nalBufferLen; }
+    [[nodiscard]] int nalBufferLen() const { return m_nalBufferLen; }
 
-   public:
     NalType nal_unit_type;
-    int nuh_layer_id;
-    int nuh_temporal_id_plus1;
+    uint8_t nuh_layer_id;
+    uint8_t nuh_temporal_id_plus1;
 
    protected:
     unsigned extractUEGolombCode();
     int extractSEGolombCode();
-    void updateBits(int bitOffset, int bitLen, int value);
+    void updateBits(int bitOffset, int bitLen, int value) const;
     bool dpb_parameters(int MaxSubLayersMinus1, bool subLayerInfoFlag);
     bool general_timing_hrd_parameters(VvcHrdUnit& m_hrd);
     bool ols_timing_hrd_parameters(VvcHrdUnit m_hrd, int firstSubLayer, int MaxSubLayersVal);
     bool sublayer_hrd_parameters(VvcHrdUnit m_hrd);
 
-   protected:
     uint8_t* m_nalBuffer;
     int m_nalBufferLen;
     BitStreamReader m_reader;
 };
 
-struct VvcUnitWithProfile : public VvcUnit
+struct VvcUnitWithProfile : VvcUnit
 {
     VvcUnitWithProfile();
-    std::string getProfileString() const;
+    [[nodiscard]] std::string getProfileString() const;
 
-   public:
-    int profile_idc;
-    int tier_flag;
-    int level_idc;
+    uint8_t profile_idc;
+    uint8_t tier_flag;
+    uint8_t level_idc;
     bool ptl_frame_only_constraint_flag;
-    int ptl_num_sub_profiles;
-    std::vector<int> general_sub_profile_idc;
+    uint8_t ptl_num_sub_profiles;
+    std::vector<unsigned> general_sub_profile_idc;
 
    protected:
     int profile_tier_level(bool profileTierPresentFlag, int MaxNumSubLayersMinus1);
 };
 
-struct VvcVpsUnit : public VvcUnitWithProfile
+struct VvcVpsUnit : VvcUnitWithProfile
 {
     VvcVpsUnit();
     int deserialize();
-    double getFPS() const;
-    void setFPS(double value);
-    std::string getDescription() const;
+    [[nodiscard]] double getFPS() const;
+    void setFPS(double fps);
+    [[nodiscard]] std::string getDescription() const;
 
-   public:
-    int vps_id;
-    int vps_max_layers;
-    int vps_max_sublayers;
+    uint8_t vps_id;
+    uint8_t vps_max_layers;
+    uint8_t vps_max_sublayers;
     int num_units_in_tick;
     int time_scale;
     int num_units_in_tick_bit_pos;
     VvcHrdUnit m_vps_hrd;
 };
 
-struct VvcSpsUnit : public VvcUnitWithProfile
+struct VvcSpsUnit : VvcUnitWithProfile
 {
     VvcSpsUnit();
     int deserialize();
-    double getFPS() const;
-    std::string getDescription() const;
+    [[nodiscard]] double getFPS() const;
+    [[nodiscard]] std::string getDescription() const;
 
-   public:
-    int sps_id;
-    int vps_id;
-    int max_sublayers_minus1;
-    int chroma_format_idc;
+    uint8_t sps_id;
+    uint8_t vps_id;
+    uint8_t max_sublayers_minus1;
+    uint8_t chroma_format_idc;
     unsigned pic_width_max_in_luma_samples;
     unsigned pic_height_max_in_luma_samples;
     unsigned bitdepth_minus8;
-    unsigned log2_max_pic_order_cnt_lsb;
+    uint8_t log2_max_pic_order_cnt_lsb;
     VvcHrdUnit m_sps_hrd;
 
     std::vector<unsigned> cpb_cnt_minus1;
@@ -134,9 +124,9 @@ struct VvcSpsUnit : public VvcUnitWithProfile
     bool progressive_source_flag;
     bool interlaced_source_flag;
     bool non_packed_constraint_flag;
-    int colour_primaries;
-    int transfer_characteristics;
-    int matrix_coeffs;
+    uint8_t colour_primaries;
+    uint8_t transfer_characteristics;
+    uint8_t matrix_coeffs;
     bool full_range_flag;
 
    private:
@@ -149,27 +139,24 @@ struct VvcSpsUnit : public VvcUnitWithProfile
     int vui_parameters();
 };
 
-struct VvcPpsUnit : public VvcUnit
+struct VvcPpsUnit : VvcUnit
 {
     VvcPpsUnit();
     int deserialize();
 
-   public:
-    int pps_id;
-    int sps_id;
+    uint8_t pps_id;
+    uint8_t sps_id;
 };
 
-struct VvcSliceHeader : public VvcUnit
+struct VvcSliceHeader : VvcUnit
 {
     VvcSliceHeader();
     int deserialize(const VvcSpsUnit* sps, const VvcPpsUnit* pps);
-    bool isIDR() const;
+    [[nodiscard]] bool isIDR() const;
 
-   public:
-    unsigned ph_pps_id;
-    int pic_order_cnt_lsb;
+    uint16_t pic_order_cnt_lsb;
 };
 
-std::vector<std::vector<uint8_t>> vvc_extract_priv_data(const uint8_t* buff, int size, int* nal_size);
+std::vector<std::vector<uint8_t>> vvc_extract_priv_data(const uint8_t* buff, int size, uint8_t* nal_size);
 
-#endif  // __VVC_H_
+#endif  // VVC_H_

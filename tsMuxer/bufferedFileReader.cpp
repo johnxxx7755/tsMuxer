@@ -18,18 +18,18 @@ bool FileReaderData::openStream()
 {
     base_class::openStream();
 
-    bool rez = m_file.open(m_streamName.c_str(), File::ofRead);
+    const bool rez = m_file.open(m_streamName.c_str(), File::ofRead);
 
     if (!rez)
     {
 #ifdef _WIN32
         LPVOID msgBuf = nullptr;
-        DWORD dw = GetLastError();
+        const DWORD dw = GetLastError();
 
-        FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
-                       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&msgBuf, 0, NULL);
+        FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, nullptr, dw,
+                       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPSTR>(&msgBuf), 0, nullptr);
 
-        string str((char*)msgBuf);
+        string str(static_cast<char*>(msgBuf));
         LTRACE(LT_ERROR, 0, str);
 #endif
     }
@@ -37,16 +37,17 @@ bool FileReaderData::openStream()
     return rez;
 }
 
-BufferedFileReader::BufferedFileReader(uint32_t blockSize, uint32_t allocSize, uint32_t prereadThreshold)
+BufferedFileReader::BufferedFileReader(const uint32_t blockSize, const uint32_t allocSize,
+                                       const uint32_t prereadThreshold)
     : BufferedReader(blockSize, allocSize, prereadThreshold)
 {
 }
 
-bool BufferedFileReader::openStream(uint32_t readerID, const char* streamName, int pid, const CodecInfo* codecInfo)
+bool BufferedFileReader::openStream(const int readerID, const char* streamName, int pid, const CodecInfo* codecInfo)
 {
-    auto data = (FileReaderData*)getReader(readerID);
+    const auto data = dynamic_cast<FileReaderData*>(getReader(readerID));
 
-    if (data == 0)
+    if (data == nullptr)
     {
         LTRACE(LT_ERROR, 0, "Unknown readerID " << readerID);
         return false;
@@ -62,14 +63,14 @@ bool BufferedFileReader::openStream(uint32_t readerID, const char* streamName, i
     }
     return true;
 }
-bool BufferedFileReader::gotoByte(uint32_t readerID, uint64_t seekDist)
+bool BufferedFileReader::gotoByte(const int readerID, const int64_t seekDist)
 {
-    auto data = (FileReaderData*)getReader(readerID);
+    const auto data = dynamic_cast<FileReaderData*>(getReader(readerID));
     if (data)
     {
-        data->m_blockSize = m_blockSize - (uint32_t)(seekDist % (uint64_t)m_blockSize);
-        uint64_t seekRez = data->m_file.seek(seekDist + data->m_fileHeaderSize, File::SeekMethod::smBegin);
-        bool rez = seekRez != (uint64_t)-1;
+        data->m_blockSize = m_blockSize - static_cast<uint32_t>(seekDist % static_cast<uint64_t>(m_blockSize));
+        const uint64_t seekRez = data->m_file.seek(seekDist + data->m_fileHeaderSize, File::SeekMethod::smBegin);
+        const bool rez = seekRez != static_cast<uint64_t>(-1);
         if (rez)
         {
             data->m_eof = false;
@@ -77,6 +78,5 @@ bool BufferedFileReader::gotoByte(uint32_t readerID, uint64_t seekDist)
         }
         return rez;
     }
-    else
-        return false;
+    return false;
 }

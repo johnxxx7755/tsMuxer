@@ -1,20 +1,20 @@
 
-#include "nalUnits.h"
-//#include <math.h>
-#include <assert.h>
 #include <fs/systemlog.h>
 
+#include <cmath>
+#include <cstring>
 #include <sstream>
 
 #include "bitStream.h"
+#include "nalUnits.h"
 #include "vod_common.h"
 
-uint8_t BDROM_METADATA_GUID[] = "\x17\xee\x8c\x60\xf8\x4d\x11\xd9\x8c\xd6\x08\x00\x20\x0c\x9a\x66";
+static constexpr uint8_t BDROM_METADATA_GUID[] = "\x17\xee\x8c\x60\xf8\x4d\x11\xd9\x8c\xd6\x08\x00\x20\x0c\x9a\x66";
 
 void NALUnit::write_rbsp_trailing_bits(BitStreamWriter& writer)
 {
     writer.putBit(1);
-    int rest = 8 - (writer.getBitsCount() & 7);
+    const unsigned rest = 8 - (writer.getBitsCount() & 7);
     if (rest == 8)
         return;
     writer.putBits(rest, 0);
@@ -31,17 +31,14 @@ int NALUnit::calcNalLenInBits(const uint8_t* nalBuffer, const uint8_t* end)
             data >>= 1;
             trailing++;
         }
-        return (int)(end - nalBuffer) * 8 - trailing;
+        return static_cast<int>(end - nalBuffer) * 8 - trailing;
     }
-    else
-    {
-        return 0;
-    }
+    return 0;
 }
 
 void NALUnit::write_byte_align_bits(BitStreamWriter& writer)
 {
-    int rest = 8 - (writer.getBitsCount() & 7);
+    const unsigned rest = 8 - (writer.getBitsCount() & 7);
     if (rest == 8)
         return;
     writer.putBit(1);
@@ -49,7 +46,7 @@ void NALUnit::write_byte_align_bits(BitStreamWriter& writer)
         writer.putBits(rest - 1, 0);
 }
 
-uint8_t* NALUnit::addStartCode(uint8_t* buffer, uint8_t* boundStart)
+uint8_t* NALUnit::addStartCode(uint8_t* buffer, const uint8_t* boundStart)
 {
     uint8_t* rez = buffer;
     if (rez - 3 >= boundStart && rez[-1] == 1 && rez[-2] == 0 && rez[-3] == 0)
@@ -69,15 +66,17 @@ uint8_t* NALUnit::findNextNAL(uint8_t* buffer, uint8_t* end)
             buffer += 3;
         else if (*buffer == 0)
             buffer++;
-        else if (buffer[-2] == 0 && buffer[-1] == 0)
-            return buffer + 1;
-        else
+        else  // *buffer == 1
+        {
+            if (buffer[-2] == 0 && buffer[-1] == 0)
+                return buffer + 1;
             buffer += 3;
+        }
     }
     return end;
 }
 
-uint8_t* NALUnit::findNALWithStartCode(const uint8_t* buffer, const uint8_t* end, bool longCodesAllowed)
+uint8_t* NALUnit::findNALWithStartCode(uint8_t* buffer, uint8_t* end, const bool longCodesAllowed)
 {
     const uint8_t* bufStart = buffer;
     for (buffer += 2; buffer < end;)
@@ -86,30 +85,31 @@ uint8_t* NALUnit::findNALWithStartCode(const uint8_t* buffer, const uint8_t* end
             buffer += 3;
         else if (*buffer == 0)
             buffer++;
-        else if (buffer[-2] == 0 && buffer[-1] == 0)
+        else  // *buffer == 1
         {
-            if (longCodesAllowed && buffer - 3 >= bufStart && buffer[-3] == 0)
-                return (uint8_t*)buffer - 3;
-            else
-                return (uint8_t*)buffer - 2;
-        }
-        else
+            if (buffer[-2] == 0 && buffer[-1] == 0)
+            {
+                if (longCodesAllowed && buffer - 3 >= bufStart && buffer[-3] == 0)
+                    return buffer - 3;
+                return buffer - 2;
+            }
             buffer += 3;
+        }
     }
-    return (uint8_t*)end;
+    return end;
 }
 
-int NALUnit::encodeNAL(uint8_t* srcBuffer, uint8_t* srcEnd, uint8_t* dstBuffer, size_t dstBufferSize)
+int NALUnit::encodeNAL(const uint8_t* srcBuffer, const uint8_t* srcEnd, uint8_t* dstBuffer, size_t dstBufferSize)
 {
-    uint8_t* srcStart = srcBuffer;
-    uint8_t* initDstBuffer = dstBuffer;
+    const uint8_t* srcStart = srcBuffer;
+    const uint8_t* initDstBuffer = dstBuffer;
     for (srcBuffer += 2; srcBuffer < srcEnd;)
     {
         if (*srcBuffer > 3)
             srcBuffer += 3;
         else if (srcBuffer[-2] == 0 && srcBuffer[-1] == 0)
         {
-            if (dstBufferSize < (size_t)(srcBuffer - srcStart + 2))
+            if (dstBufferSize < static_cast<size_t>(srcBuffer - srcStart + 2))
                 return -1;
             memcpy(dstBuffer, srcStart, srcBuffer - srcStart);
             dstBuffer += srcBuffer - srcStart;
@@ -129,16 +129,16 @@ int NALUnit::encodeNAL(uint8_t* srcBuffer, uint8_t* srcEnd, uint8_t* dstBuffer, 
         else
             srcBuffer++;
     }
-    if (dstBufferSize < (size_t)(srcEnd - srcStart))
+    if (dstBufferSize < static_cast<size_t>(srcEnd - srcStart))
         return -1;
     memcpy(dstBuffer, srcStart, srcEnd - srcStart);
     dstBuffer += srcEnd - srcStart;
-    return (int)(dstBuffer - initDstBuffer);
+    return static_cast<int>(dstBuffer - initDstBuffer);
 }
 
 int NALUnit::decodeNAL(const uint8_t* srcBuffer, const uint8_t* srcEnd, uint8_t* dstBuffer, size_t dstBufferSize)
 {
-    uint8_t* initDstBuffer = dstBuffer;
+    const uint8_t* initDstBuffer = dstBuffer;
     const uint8_t* srcStart = srcBuffer;
     for (srcBuffer += 3; srcBuffer < srcEnd;)
     {
@@ -146,7 +146,7 @@ int NALUnit::decodeNAL(const uint8_t* srcBuffer, const uint8_t* srcEnd, uint8_t*
             srcBuffer += 4;
         else if (srcBuffer[-3] == 0 && srcBuffer[-2] == 0 && srcBuffer[-1] == 3)
         {
-            if (dstBufferSize < (size_t)(srcBuffer - srcStart))
+            if (dstBufferSize < static_cast<size_t>(srcBuffer - srcStart))
                 return -1;
             memcpy(dstBuffer, srcStart, srcBuffer - srcStart - 1);
             dstBuffer += srcBuffer - srcStart - 1;
@@ -159,14 +159,14 @@ int NALUnit::decodeNAL(const uint8_t* srcBuffer, const uint8_t* srcEnd, uint8_t*
     }
     memcpy(dstBuffer, srcStart, srcEnd - srcStart);
     dstBuffer += srcEnd - srcStart;
-    return (int)(dstBuffer - initDstBuffer);
+    return static_cast<int>(dstBuffer - initDstBuffer);
 }
 
-int NALUnit::decodeNAL2(uint8_t* srcBuffer, uint8_t* srcEnd, uint8_t* dstBuffer, size_t dstBufferSize,
+int NALUnit::decodeNAL2(const uint8_t* srcBuffer, const uint8_t* srcEnd, uint8_t* dstBuffer, size_t dstBufferSize,
                         bool* keepSrcBuffer)
 {
-    uint8_t* initDstBuffer = dstBuffer;
-    uint8_t* srcStart = srcBuffer;
+    const uint8_t* initDstBuffer = dstBuffer;
+    const uint8_t* srcStart = srcBuffer;
     *keepSrcBuffer = true;
     for (srcBuffer += 3; srcBuffer < srcEnd;)
     {
@@ -174,7 +174,7 @@ int NALUnit::decodeNAL2(uint8_t* srcBuffer, uint8_t* srcEnd, uint8_t* dstBuffer,
             srcBuffer += 4;
         else if (srcBuffer[-3] == 0 && srcBuffer[-2] == 0 && srcBuffer[-1] == 3)
         {
-            if (dstBufferSize < (size_t)(srcBuffer - srcStart))
+            if (dstBufferSize < static_cast<size_t>(srcBuffer - srcStart))
                 return -1;
             memcpy(dstBuffer, srcStart, srcBuffer - srcStart - 1);
             dstBuffer += srcBuffer - srcStart - 1;
@@ -189,10 +189,10 @@ int NALUnit::decodeNAL2(uint8_t* srcBuffer, uint8_t* srcEnd, uint8_t* dstBuffer,
     if (!*keepSrcBuffer)
         memcpy(dstBuffer, srcStart, srcEnd - srcStart);
     dstBuffer += srcEnd - srcStart;
-    return (int)(dstBuffer - initDstBuffer);
+    return static_cast<int>(dstBuffer - initDstBuffer);
 }
 
-unsigned NALUnit::extractUEGolombCode(uint8_t* buffer, uint8_t* bufEnd)
+unsigned NALUnit::extractUEGolombCode(uint8_t* buffer, const uint8_t* bufEnd)
 {
     BitStreamReader reader{};
     reader.setBuffer(buffer, bufEnd);
@@ -201,7 +201,7 @@ unsigned NALUnit::extractUEGolombCode(uint8_t* buffer, uint8_t* bufEnd)
 
 unsigned NALUnit::extractUEGolombCode()
 {
-    int cnt = 0;
+    unsigned cnt = 0;
     for (; bitReader.getBit() == 0; cnt++)
         ;
     if (cnt > INT_BIT)
@@ -209,7 +209,7 @@ unsigned NALUnit::extractUEGolombCode()
     return (1 << cnt) - 1 + bitReader.getBits(cnt);
 }
 
-void NALUnit::writeSEGolombCode(BitStreamWriter& bitWriter, int32_t value)
+void NALUnit::writeSEGolombCode(BitStreamWriter& bitWriter, const int32_t value)
 {
     if (value <= 0)
         writeUEGolombCode(bitWriter, -value * 2);
@@ -217,7 +217,7 @@ void NALUnit::writeSEGolombCode(BitStreamWriter& bitWriter, int32_t value)
         writeUEGolombCode(bitWriter, value * 2 - 1);
 }
 
-void NALUnit::writeUEGolombCode(BitStreamWriter& bitWriter, uint32_t value)
+void NALUnit::writeUEGolombCode(BitStreamWriter& bitWriter, const uint32_t value)
 {
     uint32_t maxVal = 0;
     int x = 1;
@@ -242,11 +242,10 @@ unsigned NALUnit::extractUEGolombCode(BitStreamReader& bitReader)
 
 int NALUnit::extractSEGolombCode()
 {
-    unsigned rez = extractUEGolombCode();
+    const unsigned rez = extractUEGolombCode();
     if (rez % 2 == 0)
-        return -(int)(rez / 2);
-    else
-        return (int)((rez + 1) / 2);
+        return -static_cast<int>(rez / 2);
+    return static_cast<int>((rez + 1) / 2);
 }
 
 int NALUnit::deserialize(uint8_t* buffer, uint8_t* end)
@@ -261,7 +260,7 @@ int NALUnit::deserialize(uint8_t* buffer, uint8_t* end)
     }
 
     nal_ref_idc = (*buffer >> 5) & 0x3;
-    nal_unit_type = (NALType)(*buffer & 0x1f);
+    nal_unit_type = static_cast<NALType>(*buffer & 0x1f);
     return 0;
 }
 
@@ -272,7 +271,7 @@ void NALUnit::decodeBuffer(const uint8_t* buffer, const uint8_t* end)
     m_nalBufferLen = decodeNAL(buffer, end, m_nalBuffer, end - buffer);
 }
 
-int NALUnit::serializeBuffer(uint8_t* dstBuffer, uint8_t* dstEnd, bool writeStartCode) const
+int NALUnit::serializeBuffer(uint8_t* dstBuffer, uint8_t* dstEnd, const bool writeStartCode) const
 {
     if (m_nalBufferLen == 0)
         return 0;
@@ -285,11 +284,10 @@ int NALUnit::serializeBuffer(uint8_t* dstBuffer, uint8_t* dstEnd, bool writeStar
         *dstBuffer++ = 0;
         *dstBuffer++ = 1;
     }
-    int encodeRez = NALUnit::encodeNAL(m_nalBuffer, m_nalBuffer + m_nalBufferLen, dstBuffer, dstEnd - dstBuffer);
+    const int encodeRez = encodeNAL(m_nalBuffer, m_nalBuffer + m_nalBufferLen, dstBuffer, dstEnd - dstBuffer);
     if (encodeRez == -1)
         return -1;
-    else
-        return encodeRez + (writeStartCode ? 4 : 0);
+    return encodeRez + (writeStartCode ? 4 : 0);
 }
 
 int NALUnit::serialize(uint8_t* dstBuffer)
@@ -297,31 +295,14 @@ int NALUnit::serialize(uint8_t* dstBuffer)
     *dstBuffer++ = 0;
     *dstBuffer++ = 0;
     *dstBuffer++ = 1;
-    *dstBuffer = ((nal_ref_idc & 3) << 5) + (int)nal_unit_type;
+    *dstBuffer = static_cast<uint8_t>((nal_ref_idc & 3) << 5) | static_cast<uint8_t>(nal_unit_type);
     return 4;
-}
-
-int ceil_log2(double val)
-{
-    int iVal = (int)val;
-    double frac = val - iVal;
-    int bits = 0;
-    for (; iVal > 0; iVal >>= 1)
-    {
-        bits++;
-    }
-    int mask = 1 << (bits - 1);
-    iVal = (int)val;
-    if (iVal - mask == 0 && frac == 0)
-        return bits - 1;  // For example: cail(log2(8.0)) = 3, but for 8.2 or 9.0 it's 4
-    else
-        return bits;
 }
 
 // -------------------- NALDelimiter ------------------
 int NALDelimiter::deserialize(uint8_t* buffer, uint8_t* end)
 {
-    int rez = NALUnit::deserialize(buffer, end);
+    const int rez = NALUnit::deserialize(buffer, end);
     if (rez != 0)
         return rez;
     if (end - buffer < 2)
@@ -334,15 +315,15 @@ int NALDelimiter::serialize(uint8_t* buffer)
 {
     uint8_t* curBuf = buffer;
     curBuf += NALUnit::serialize(curBuf);
-    *curBuf++ = (primary_pic_type << 5) + 0x10;
-    return (int)(curBuf - buffer);
+    *curBuf++ = static_cast<uint8_t>(primary_pic_type << 5 | 0x10);
+    return static_cast<int>(curBuf - buffer);
 }
 
 // -------------------- PPSUnit --------------------------
 int PPSUnit::deserialize()
 {
     uint8_t* nalEnd = m_nalBuffer + m_nalBufferLen;
-    int rez = NALUnit::deserialize(m_nalBuffer, nalEnd);
+    const int rez = NALUnit::deserialize(m_nalBuffer, nalEnd);
     if (rez != 0)
         return rez;
     if (nalEnd - m_nalBuffer < 2)
@@ -362,8 +343,9 @@ int PPSUnit::deserialize()
         m_ready = true;
         return 0;
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 }
@@ -375,9 +357,7 @@ HRDParams::HRDParams()
     isPresent = false;
 }
 
-HRDParams::~HRDParams() {}
-
-void HRDParams::resetDefault(bool mvc)
+void HRDParams::resetDefault(const bool mvc)
 {
     isPresent = false;
     bitLen = 0;
@@ -415,8 +395,7 @@ void HRDParams::resetDefault(bool mvc)
 // -------------------- SPSUnit --------------------------
 
 SPSUnit::SPSUnit()
-    : NALUnit(),
-      m_ready(false),
+    : m_ready(false),
       sar_width(0),
       sar_height(0),
       num_units_in_tick(0),
@@ -455,7 +434,7 @@ SPSUnit::SPSUnit()
 {
 }
 
-void SPSUnit::scaling_list(int* scalingList, int sizeOfScalingList, bool& useDefaultScalingMatrixFlag)
+void SPSUnit::scaling_list(int* scalingList, const int sizeOfScalingList, bool& useDefaultScalingMatrixFlag)
 {
     int lastScale = 8;
     int nextScale = 8;
@@ -463,7 +442,7 @@ void SPSUnit::scaling_list(int* scalingList, int sizeOfScalingList, bool& useDef
     {
         if (nextScale != 0)
         {
-            int delta_scale = extractSEGolombCode();
+            const int delta_scale = extractSEGolombCode();
             nextScale = (lastScale + delta_scale + 256) % 256;
             useDefaultScalingMatrixFlag = (j == 0 && nextScale == 0);
         }
@@ -543,7 +522,7 @@ int SPSUnit::deserialize()
             delta_pic_order_always_zero_flag = bitReader.getBit();
             offset_for_non_ref_pic = extractSEGolombCode();
             extractSEGolombCode();  // offset_for_top_to_bottom_field
-            int num_ref_frames_in_pic_order_cnt_cycle = extractUEGolombCode();
+            const unsigned num_ref_frames_in_pic_order_cnt_cycle = extractUEGolombCode();
             if (num_ref_frames_in_pic_order_cnt_cycle >= 256)
                 return 1;
 
@@ -584,8 +563,9 @@ int SPSUnit::deserialize()
 
         return 0;
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 }
@@ -601,7 +581,7 @@ int SPSUnit::deserializeSubSPS()
             return INVALID_BITSTREAM_SYNTAX;
         if (seq_parameter_set_mvc_extension() != 0)  // specified in Annex H
             return 1;
-        int mvc_vui_parameters_present_flag = bitReader.getBit();
+        const int mvc_vui_parameters_present_flag = bitReader.getBit();
         if (mvc_vui_parameters_present_flag)
             if (mvc_vui_parameters_extension() != 0)  // specified in Annex H
                 return 1;
@@ -615,11 +595,11 @@ int SPSUnit::deserializeVuiParameters()
     aspect_ratio_info_present_flag = bitReader.getBit();
     if (aspect_ratio_info_present_flag)
     {
-        aspect_ratio_idc = bitReader.getBits(8);
+        aspect_ratio_idc = bitReader.getBits<uint8_t>(8);
         if (aspect_ratio_idc == Extended_SAR)
         {
-            sar_width = bitReader.getBits(16);
-            sar_height = bitReader.getBits(16);
+            sar_width = bitReader.getBits<uint16_t>(16);
+            sar_height = bitReader.getBits<uint16_t>(16);
         }
     }
     if (bitReader.getBit())   // overscan_info_present_flag
@@ -651,7 +631,7 @@ int SPSUnit::deserializeVuiParameters()
     nalHrdParams.isPresent = bitReader.getBit();
     if (nalHrdParams.isPresent)
     {
-        int beforeCount = bitReader.getBitsCount();
+        const int beforeCount = bitReader.getBitsCount();
         if (hrd_parameters(nalHrdParams) != 0)
             return 1;
         nalHrdParams.bitLen = bitReader.getBitsCount() - beforeCount;
@@ -660,7 +640,7 @@ int SPSUnit::deserializeVuiParameters()
     vclHrdParams.isPresent = bitReader.getBit();
     if (vclHrdParams.isPresent)
     {
-        int beforeCount = bitReader.getBitsCount();
+        const int beforeCount = bitReader.getBitsCount();
         if (hrd_parameters(vclHrdParams) != 0)
             return 1;
         vclHrdParams.bitLen = bitReader.getBitsCount() - beforeCount;
@@ -710,8 +690,8 @@ void SPSUnit::insertHrdParameters()
     {
         if (!mvcNalHrdParams[i].isPresent || !mvcVclHrdParams[i].isPresent)
         {
-            int nalBitLen = mvcNalHrdParams[i].bitLen;
-            int vclBitLen = mvcVclHrdParams[i].bitLen;
+            const int nalBitLen = mvcNalHrdParams[i].bitLen;
+            const int vclBitLen = mvcVclHrdParams[i].bitLen;
 
             if (mvcNalHrdParams[i].isPresent || !mvcVclHrdParams[i].isPresent)
                 mvcVclHrdParams[i] = mvcNalHrdParams[i];
@@ -731,8 +711,8 @@ void SPSUnit::insertHrdParameters()
 
     if (!nalHrdParams.isPresent || !vclHrdParams.isPresent)
     {
-        int nalBitLen = nalHrdParams.bitLen;
-        int vclBitLen = vclHrdParams.bitLen;
+        const int nalBitLen = nalHrdParams.bitLen;
+        const int vclBitLen = vclHrdParams.bitLen;
 
         if (nalHrdParams.isPresent || !vclHrdParams.isPresent)
             vclHrdParams = nalHrdParams;
@@ -751,8 +731,8 @@ void SPSUnit::insertHrdParameters()
         nalHrdParams.isPresent = true;
         vclHrdParams.isPresent = true;
     }
-    nalHrdParams.isPresent = 1;
-    vclHrdParams.isPresent = 1;
+    nalHrdParams.isPresent = true;
+    vclHrdParams.isPresent = true;
 
     if (!fixed_frame_rate_flag)
         updateTimingInfo();
@@ -761,13 +741,13 @@ void SPSUnit::insertHrdParameters()
 void SPSUnit::updateTimingInfo()
 {
     // replace hrd parameters not implemented. only insert
-    int bitPos = hrdParamsBitPos - 1;
+    const int bitPos = hrdParamsBitPos - 1;
 
-    const int EXTRA_SPACE = 64;
+    static constexpr int EXTRA_SPACE = 64;
 
-    auto newNalBuffer = new uint8_t[m_nalBufferLen + EXTRA_SPACE];
+    const auto newNalBuffer = new uint8_t[m_nalBufferLen + EXTRA_SPACE];
 
-    int beforeBytes = bitPos >> 3;
+    const int beforeBytes = bitPos >> 3;
     memcpy(newNalBuffer, m_nalBuffer, m_nalBufferLen);
 
     BitStreamReader reader{};
@@ -796,7 +776,7 @@ void SPSUnit::updateTimingInfo()
     fixed_frame_rate_flag = 1;
 
     // copy end of SPS
-    int bitRest = full_sps_bit_len - reader.getBitsCount() - beforeBytes * 8;
+    unsigned bitRest = full_sps_bit_len - reader.getBitsCount() - beforeBytes * 8;
     for (; bitRest >= 8; bitRest -= 8)
     {
         tmpVal = reader.getBits(8);
@@ -818,14 +798,15 @@ void SPSUnit::updateTimingInfo()
     m_nalBuffer = newNalBuffer;
 }
 
-void SPSUnit::insertHrdData(int bitPos, int nal_hrd_len, int vcl_hrd_len, bool addVuiHeader, const HRDParams& params)
+void SPSUnit::insertHrdData(const int bitPos, const int nal_hrd_len, const int vcl_hrd_len, const bool addVuiHeader,
+                            const HRDParams& params)
 {
     // replace hrd parameters not implemented. only insert
-    const int EXTRA_SPACE = 64;
+    static constexpr int EXTRA_SPACE = 64;
 
-    auto newNalBuffer = new uint8_t[m_nalBufferLen + EXTRA_SPACE];
+    const auto newNalBuffer = new uint8_t[m_nalBufferLen + EXTRA_SPACE];
 
-    int beforeBytes = bitPos >> 3;
+    const int beforeBytes = bitPos >> 3;
     memcpy(newNalBuffer, m_nalBuffer, m_nalBufferLen);
 
     BitStreamReader reader{};
@@ -892,7 +873,7 @@ void SPSUnit::insertHrdData(int bitPos, int nal_hrd_len, int vcl_hrd_len, bool a
     }
 
     // copy end of SPS
-    int bitRest = full_sps_bit_len - reader.getBitsCount() - beforeBytes * 8;
+    unsigned bitRest = full_sps_bit_len - reader.getBitsCount() - beforeBytes * 8;
     for (; bitRest >= 8; bitRest -= 8)
     {
         tmpVal = reader.getBits(8);
@@ -914,12 +895,11 @@ void SPSUnit::insertHrdData(int bitPos, int nal_hrd_len, int vcl_hrd_len, bool a
     m_nalBuffer = newNalBuffer;
 }
 
-int SPSUnit::getMaxBitrate()
+unsigned SPSUnit::getMaxBitrate() const
 {
     if (nalHrdParams.bit_rate_value_minus1.empty() == 0)
         return 0;
-    else
-        return (nalHrdParams.bit_rate_value_minus1[0] + 1) << (6 + nalHrdParams.bit_rate_scale);
+    return (nalHrdParams.bit_rate_value_minus1[0] + 1) << (6 + nalHrdParams.bit_rate_scale);
 }
 
 int SPSUnit::hrd_parameters(HRDParams& params)
@@ -927,8 +907,8 @@ int SPSUnit::hrd_parameters(HRDParams& params)
     params.cpb_cnt_minus1 = extractUEGolombCode();
     if (params.cpb_cnt_minus1 >= 32)
         return 1;
-    params.bit_rate_scale = bitReader.getBits(4);
-    params.cpb_size_scale = bitReader.getBits(4);
+    params.bit_rate_scale = bitReader.getBits<uint8_t>(4);
+    params.cpb_size_scale = bitReader.getBits<uint8_t>(4);
 
     params.bit_rate_value_minus1.resize(params.cpb_cnt_minus1 + 1);
     params.cpb_size_value_minus1.resize(params.cpb_cnt_minus1 + 1);
@@ -937,65 +917,42 @@ int SPSUnit::hrd_parameters(HRDParams& params)
     for (size_t SchedSelIdx = 0; SchedSelIdx <= params.cpb_cnt_minus1; SchedSelIdx++)
     {
         params.bit_rate_value_minus1[SchedSelIdx] = extractUEGolombCode();
-        if (params.bit_rate_value_minus1[SchedSelIdx] == 0xffffffff)
+        if (params.bit_rate_value_minus1[SchedSelIdx] == UINT_MAX)
             return 1;
         params.cpb_size_value_minus1[SchedSelIdx] = extractUEGolombCode();
-        if (params.cpb_size_value_minus1[SchedSelIdx] == 0xffffffff)
+        if (params.cpb_size_value_minus1[SchedSelIdx] == UINT_MAX)
             return 1;
         params.cbr_flag[SchedSelIdx] = bitReader.getBit();
     }
-    params.initial_cpb_removal_delay_length_minus1 = bitReader.getBits(5);
-    params.cpb_removal_delay_length_minus1 = bitReader.getBits(5);
-    params.dpb_output_delay_length_minus1 = bitReader.getBits(5);
-    params.time_offset_length = bitReader.getBits(5);
+    params.initial_cpb_removal_delay_length_minus1 = bitReader.getBits<uint8_t>(5);
+    params.cpb_removal_delay_length_minus1 = bitReader.getBits<uint8_t>(5);
+    params.dpb_output_delay_length_minus1 = bitReader.getBits<uint8_t>(5);
+    params.time_offset_length = bitReader.getBits<uint8_t>(5);
 
     return 0;
 }
 
-int SPSUnit::getCropY()
+unsigned SPSUnit::getCropY() const
 {
-    if (chroma_format_idc == 0)
-        return (2 - frame_mbs_only_flag) * (frame_crop_top_offset + frame_crop_bottom_offset);
-    else
-    {
-        int SubHeightC = 1;
-        if (chroma_format_idc == 1)
-            SubHeightC = 2;
-        return SubHeightC * (2 - frame_mbs_only_flag) * (frame_crop_top_offset + frame_crop_bottom_offset);
-    }
+    const int SubHeightC = chroma_format_idc == 1 ? 2 : 1;
+    return SubHeightC * (2 - frame_mbs_only_flag) * (frame_crop_top_offset + frame_crop_bottom_offset);
 }
 
-int SPSUnit::getCropX()
+unsigned SPSUnit::getCropX() const
 {
-    if (chroma_format_idc == 0)
-        return frame_crop_left_offset + frame_crop_right_offset;
-    else
-    {
-        int SubWidthC = 1;
-        if (chroma_format_idc == 1 || chroma_format_idc == 2)
-            SubWidthC = 2;
-        return SubWidthC * (frame_crop_left_offset + frame_crop_right_offset);
-    }
+    const int SubWidthC = chroma_format_idc == 1 || chroma_format_idc == 2 ? 2 : 1;
+    return SubWidthC * (frame_crop_left_offset + frame_crop_right_offset);
 }
 
 double SPSUnit::getFPS() const
 {
-    if (num_units_in_tick != 0)
-    {
-        double tmp = time_scale / (float)num_units_in_tick / 2;  //(float)(frame_mbs_only_flag+1);
-        // if (abs(tmp - (double) 23.9760239760) < 3e-3)
-        //	return 23.9760239760;
-        return tmp;
-    }
-    else
-        return 0;
+    return num_units_in_tick != 0 ? static_cast<double>(time_scale) / num_units_in_tick / 2 : 0;
 }
 
-void SPSUnit::setFps(double fps)
+void SPSUnit::setFps(const double fps)
 {
-    time_scale = (uint32_t)(fps + 0.5) * 1000000;
-    // time_scale = (uint32_t)(fps+0.5) * 1000;
-    num_units_in_tick = (uint32_t)(time_scale / fps + 0.5);
+    time_scale = lround(fps) * 1000000;
+    num_units_in_tick = lround(time_scale / fps);
     time_scale *= 2;
 
     if (num_units_in_tick_bit_pos > 0)
@@ -1005,7 +962,7 @@ void SPSUnit::setFps(double fps)
     }
 }
 
-std::string SPSUnit::getStreamDescr()
+std::string SPSUnit::getStreamDescr() const
 {
     std::ostringstream rez;
 
@@ -1014,7 +971,7 @@ std::string SPSUnit::getStreamDescr()
         if (profile_idc == 83 || profile_idc == 86)
             rez << "SVC part ";
         else if (profile_idc == 118 || profile_idc == 128)
-            rez << "H.264/MVC Views: " << int32ToStr(num_views) << " ";
+            rez << "H.264/MVC Views: " << int32uToStr(num_views) << " ";
     }
 
     rez << "Profile: ";
@@ -1030,8 +987,8 @@ std::string SPSUnit::getStreamDescr()
     rez << "Resolution: " << getWidth() << ':' << getHeight();
     rez << (frame_mbs_only_flag ? 'p' : 'i') << "  ";
     rez << "Frame rate: ";
-    double fps = getFPS();
-    if (fps != 0)
+    const double fps = getFPS();
+    if (fps != 0.0)
     {
         rez << fps;
     }
@@ -1043,13 +1000,13 @@ std::string SPSUnit::getStreamDescr()
 
 int SPSUnit::seq_parameter_set_mvc_extension()
 {
-    unsigned num_views_minus1 = extractUEGolombCode();
+    const unsigned num_views_minus1 = extractUEGolombCode();
     if (num_views_minus1 >= 1 << 10)
         return 1;
     num_views = num_views_minus1 + 1;
 
     view_id.resize(num_views);
-    for (int i = 0; i < num_views; i++)
+    for (unsigned i = 0; i < num_views; i++)
     {
         view_id[i] = extractUEGolombCode();
         if (view_id[i] >= 1 << 10)
@@ -1067,7 +1024,7 @@ int SPSUnit::seq_parameter_set_mvc_extension()
     num_non_anchor_refs_l0.resize(num_views);
     num_non_anchor_refs_l1.resize(num_views);
 
-    for (int i = 1; i < num_views; i++)
+    for (unsigned i = 1; i < num_views; i++)
     {
         num_anchor_refs_l0[i] = extractUEGolombCode();
         if (num_anchor_refs_l0[i] >= 16)
@@ -1083,7 +1040,7 @@ int SPSUnit::seq_parameter_set_mvc_extension()
                 return 1;
     }
 
-    for (int i = 1; i < num_views; i++)
+    for (unsigned i = 1; i < num_views; i++)
     {
         num_non_anchor_refs_l0[i] = extractUEGolombCode();
         if (num_non_anchor_refs_l0[i] >= 16)
@@ -1099,21 +1056,21 @@ int SPSUnit::seq_parameter_set_mvc_extension()
                 return 1;
     }
 
-    int num_level_values_signalled_minus1 = extractUEGolombCode();
+    const unsigned num_level_values_signalled_minus1 = extractUEGolombCode();
     if (num_level_values_signalled_minus1 >= 64)
         return 1;
     num_applicable_ops_minus1.resize(num_level_values_signalled_minus1 + 1);
     level_idc_ext.resize(num_level_values_signalled_minus1 + 1);
-    for (int i = 0; i <= num_level_values_signalled_minus1; i++)
+    for (unsigned i = 0; i <= num_level_values_signalled_minus1; i++)
     {
-        level_idc_ext[i] = bitReader.getBits(8);
+        level_idc_ext[i] = bitReader.getBits<uint8_t>(8);
         num_applicable_ops_minus1[i] = extractUEGolombCode();
         if (num_applicable_ops_minus1[i] >= 1 << 10)
             return 1;
         for (size_t j = 0; j <= num_applicable_ops_minus1[i]; j++)
         {
-            bitReader.skipBits(3);                   // applicable_op_temporal_id[ i ][ j ]
-            unsigned dummy = extractUEGolombCode();  // applicable_op_num_target_views_minus1[ i ][ j ]
+            bitReader.skipBits(3);                         // applicable_op_temporal_id[ i ][ j ]
+            const unsigned dummy = extractUEGolombCode();  // applicable_op_num_target_views_minus1[ i ][ j ]
             if (dummy >= 1 << 10)
                 return 1;
             for (size_t k = 0; k <= dummy; k++)
@@ -1132,10 +1089,10 @@ void SPSUnit::svc_vui_parameters_extension() {}
 
 int SPSUnit::mvc_vui_parameters_extension()
 {
-    unsigned vui_mvc_num_ops = extractUEGolombCode() + 1;
+    const unsigned vui_mvc_num_ops = extractUEGolombCode() + 1;
     if (vui_mvc_num_ops > 1 << 10)
         return 1;
-    std::vector<int> vui_mvc_temporal_id;
+    std::vector<uint8_t> vui_mvc_temporal_id;
     vui_mvc_temporal_id.resize(vui_mvc_num_ops);
     mvcHrdParamsBitPos.resize(vui_mvc_num_ops);
     mvcNalHrdParams.resize(vui_mvc_num_ops);
@@ -1143,8 +1100,8 @@ int SPSUnit::mvc_vui_parameters_extension()
 
     for (size_t i = 0; i < vui_mvc_num_ops; i++)
     {
-        vui_mvc_temporal_id[i] = bitReader.getBits(3);
-        unsigned vui_mvc_num_target_output_views = extractUEGolombCode() + 1;
+        vui_mvc_temporal_id[i] = bitReader.getBits<uint8_t>(3);
+        const unsigned vui_mvc_num_target_output_views = extractUEGolombCode() + 1;
         if (vui_mvc_num_target_output_views > 1 << 10)
             return 1;
         for (size_t j = 0; j < vui_mvc_num_target_output_views; j++)
@@ -1162,7 +1119,7 @@ int SPSUnit::mvc_vui_parameters_extension()
         mvcNalHrdParams[i].isPresent = bitReader.getBit();
         if (mvcNalHrdParams[i].isPresent)
         {
-            int beforeCount = bitReader.getBitsCount();
+            const int beforeCount = bitReader.getBitsCount();
             if (hrd_parameters(mvcNalHrdParams[i]) != 0)
                 return 1;
             mvcNalHrdParams[i].bitLen = bitReader.getBitsCount() - beforeCount;
@@ -1170,7 +1127,7 @@ int SPSUnit::mvc_vui_parameters_extension()
         mvcVclHrdParams[i].isPresent = bitReader.getBit();
         if (mvcVclHrdParams[i].isPresent)
         {
-            int beforeCount = bitReader.getBitsCount();
+            const int beforeCount = bitReader.getBitsCount();
             if (hrd_parameters(mvcVclHrdParams[i]) != 0)
                 return 1;
             mvcVclHrdParams[i].bitLen = bitReader.getBitsCount() - beforeCount;
@@ -1185,8 +1142,7 @@ int SPSUnit::mvc_vui_parameters_extension()
 // --------------------- SliceUnit -----------------------
 
 SliceUnit::SliceUnit()
-    : NALUnit(),
-      m_field_pic_flag(0),
+    : m_field_pic_flag(0),
       non_idr_flag(0),
       memory_management_control_operation(0),
       first_mb_in_slice(0),
@@ -1223,7 +1179,7 @@ bool SliceUnit::isIDR() const
 
 bool SliceUnit::isIFrame() const
 {
-    return nal_unit_type == NALType::nuSliceExt ? anchor_pic_flag : slice_type == SliceUnit::I_TYPE;
+    return nal_unit_type == NALType::nuSliceExt ? anchor_pic_flag : slice_type == I_TYPE;
 }
 
 int SliceUnit::deserializeSliceType(uint8_t* buffer, uint8_t* end)
@@ -1231,7 +1187,7 @@ int SliceUnit::deserializeSliceType(uint8_t* buffer, uint8_t* end)
     if (end - buffer < 2)
         return NOT_ENOUGH_BUFFER;
 
-    int rez = NALUnit::deserialize(buffer, end);
+    const int rez = NALUnit::deserialize(buffer, end);
     if (rez != 0)
         return rez;
 
@@ -1251,16 +1207,18 @@ int SliceUnit::deserializeSliceType(uint8_t* buffer, uint8_t* end)
 
         bitReader.setBuffer(buffer + offset, end);
         first_mb_in_slice = extractUEGolombCode();
-        orig_slice_type = slice_type = extractUEGolombCode();
-        if (slice_type > 9)
+        const unsigned sliceType = extractUEGolombCode();
+        if (sliceType > 9)
             return 1;
+        orig_slice_type = slice_type = sliceType;
         if (slice_type > 4)
             slice_type -= 5;  // +5 flag is: all other slice at this picture must be same type
 
         return 0;
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 };
@@ -1293,33 +1251,34 @@ int SliceUnit::deserialize(uint8_t* buffer, uint8_t* end, const std::map<uint32_
         return rez;
         // return deserializeSliceData();
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 }
 
-void NALUnit::updateBits(int bitOffset, int bitLen, int value)
+void NALUnit::updateBits(const int bitOffset, const int bitLen, const unsigned value) const
 {
     // uint8_t* ptr = m_getbitContextBuffer + (bitOffset/8);
-    uint8_t* ptr = (uint8_t*)bitReader.getBuffer() + bitOffset / 8;
+    uint8_t* ptr = bitReader.getBuffer() + bitOffset / 8;
     BitStreamWriter bitWriter{};
-    int byteOffset = bitOffset % 8;
+    const int byteOffset = bitOffset % 8;
     bitWriter.setBuffer(ptr, ptr + (bitLen / 8 + 5));
 
-    uint8_t* ptr_end = (uint8_t*)bitReader.getBuffer() + (bitOffset + bitLen) / 8;
-    int endBitsPostfix = 8 - ((bitOffset + bitLen) % 8);
+    const uint8_t* ptr_end = bitReader.getBuffer() + (bitOffset + bitLen) / 8;
+    const int endBitsPostfix = 8 - ((bitOffset + bitLen) % 8);
 
     if (byteOffset > 0)
     {
-        int prefix = *ptr >> (8 - byteOffset);
+        const int prefix = *ptr >> (8 - byteOffset);
         bitWriter.putBits(byteOffset, prefix);
     }
     bitWriter.putBits(bitLen, value);
 
     if (endBitsPostfix < 8)
     {
-        int postfix = *ptr_end & (1 << endBitsPostfix) - 1;
+        const int postfix = *ptr_end & (1 << endBitsPostfix) - 1;
         bitWriter.putBits(endBitsPostfix, postfix);
     }
     bitWriter.flushBits();
@@ -1329,20 +1288,21 @@ int SliceUnit::deserializeSliceHeader(const std::map<uint32_t, SPSUnit*>& spsMap
                                       const std::map<uint32_t, PPSUnit*>& ppsMap)
 {
     first_mb_in_slice = extractUEGolombCode();
-    orig_slice_type = slice_type = extractUEGolombCode();
-    if (slice_type > 9)
+    const unsigned sliceType = extractUEGolombCode();
+    if (sliceType > 9)
         return 1;
+    orig_slice_type = slice_type = static_cast<int>(sliceType);
     if (slice_type > 4)
         slice_type -= 5;  // +5 flag is: all other slice at this picture must be same type
     pic_parameter_set_id = extractUEGolombCode();
     if (pic_parameter_set_id >= 256)
         return 1;
-    auto itr = ppsMap.find(pic_parameter_set_id);
+    const auto itr = ppsMap.find(pic_parameter_set_id);
     if (itr == ppsMap.end())
         return SPS_OR_PPS_NOT_READY;
     pps = itr->second;
 
-    auto itr2 = spsMap.find(pps->seq_parameter_set_id);
+    const auto itr2 = spsMap.find(pps->seq_parameter_set_id);
     if (itr2 == spsMap.end())
         return SPS_OR_PPS_NOT_READY;
     sps = itr2->second;
@@ -1350,7 +1310,7 @@ int SliceUnit::deserializeSliceHeader(const std::map<uint32_t, SPSUnit*>& spsMap
     if (sps->separate_colour_plane_flag)
         bitReader.skipBits(2);  // colour_plane_id
 
-    frame_num = bitReader.getBits(sps->log2_max_frame_num);
+    frame_num = bitReader.getBits<uint16_t>(sps->log2_max_frame_num);
     bottom_field_flag = 0;
     m_field_pic_flag = 0;
     if (sps->frame_mbs_only_flag == 0)
@@ -1366,7 +1326,7 @@ int SliceUnit::deserializeSliceHeader(const std::map<uint32_t, SPSUnit*>& spsMap
     }
     if (sps->pic_order_cnt_type == 0)
     {
-        pic_order_cnt_lsb = bitReader.getBits(sps->log2_max_pic_order_cnt_lsb);
+        pic_order_cnt_lsb = bitReader.getBits<uint16_t>(sps->log2_max_pic_order_cnt_lsb);
         if (pps->pic_order_present_flag && !m_field_pic_flag)
             extractSEGolombCode();  // delta_pic_order_cnt_bottom
     }
@@ -1374,14 +1334,14 @@ int SliceUnit::deserializeSliceHeader(const std::map<uint32_t, SPSUnit*>& spsMap
 }
 
 // --------------- SEI UNIT ------------------------
-void SEIUnit::deserialize(SPSUnit& sps, int orig_hrd_parameters_present_flag)
+void SEIUnit::deserialize(const SPSUnit& sps, const int orig_hrd_parameters_present_flag)
 {
     pic_struct = -1;
 
     uint8_t* nalEnd = m_nalBuffer + m_nalBufferLen;
     try
     {
-        int rez = NALUnit::deserialize(m_nalBuffer, nalEnd);
+        const int rez = NALUnit::deserialize(m_nalBuffer, nalEnd);
         if (rez != 0)
             return;
         uint8_t* curBuff = m_nalBuffer + 1;
@@ -1400,7 +1360,7 @@ void SEIUnit::deserialize(SPSUnit& sps, int orig_hrd_parameters_present_flag)
             if (curBuff >= nalEnd)
                 return;
             payloadSize += *curBuff++;
-            if (nalEnd - curBuff < payloadSize - 1)
+            if (nalEnd - curBuff < payloadSize)
             {
                 LTRACE(LT_WARN, 2, "Bad SEI detected. SEI too short");
                 return;
@@ -1410,11 +1370,11 @@ void SEIUnit::deserialize(SPSUnit& sps, int orig_hrd_parameters_present_flag)
             curBuff += payloadSize;
         }
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         LTRACE(LT_WARN, 2, "Bad SEI detected. SEI too short");
     }
-    return;
 }
 
 int SEIUnit::isMVCSEI()
@@ -1424,10 +1384,10 @@ int SEIUnit::isMVCSEI()
     uint8_t* nalEnd = m_nalBuffer + m_nalBufferLen;
     try
     {
-        int rez = NALUnit::deserialize(m_nalBuffer, nalEnd);
+        const int rez = NALUnit::deserialize(m_nalBuffer, nalEnd);
         if (rez != 0)
             return NOT_ENOUGH_BUFFER;
-        uint8_t* curBuff = m_nalBuffer + 1;
+        const uint8_t* curBuff = m_nalBuffer + 1;
         while (curBuff < nalEnd - 1)
         {
             int payloadType = 0;
@@ -1450,20 +1410,20 @@ int SEIUnit::isMVCSEI()
             curBuff += payloadSize;
         }
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
-        ;
+        (void)e;
     }
     return 0;
 }
 
-int SEIUnit::removePicTimingSEI(SPSUnit& sps)
+unsigned SEIUnit::removePicTimingSEI(SPSUnit& sps)
 {
-    uint8_t* nalEnd = m_nalBuffer + m_nalBufferLen;
-    uint8_t* curBuff = m_nalBuffer + 1;
+    const uint8_t* nalEnd = m_nalBuffer + m_nalBufferLen;
+    const uint8_t* curBuff = m_nalBuffer + 1;
     uint8_t tmpBuffer[1024 * 4]{};
     tmpBuffer[0] = m_nalBuffer[0];
-    int tmpBufferLen = 1;
+    unsigned tmpBufferLen = 1;
 
     while (curBuff < nalEnd)
     {
@@ -1475,8 +1435,8 @@ int SEIUnit::removePicTimingSEI(SPSUnit& sps)
         }
         if (curBuff >= nalEnd)
             break;
-        payloadType += *curBuff++;
-        tmpBuffer[tmpBufferLen++] = payloadType;
+        payloadType += *curBuff;
+        tmpBuffer[tmpBufferLen++] = *curBuff++;
         if (curBuff >= nalEnd)
             break;
 
@@ -1489,15 +1449,11 @@ int SEIUnit::removePicTimingSEI(SPSUnit& sps)
         if (curBuff >= nalEnd)
             break;
 
-        payloadSize += *curBuff++;
-        tmpBuffer[tmpBufferLen++] = payloadSize;
+        payloadSize += *curBuff;
+        tmpBuffer[tmpBufferLen++] = *curBuff++;
         if (curBuff >= nalEnd)
             break;
-        if (payloadType == SEI_MSG_PIC_TIMING)
-        {
-            tmpBufferLen -= 2;  // skip this sei message
-        }
-        else if (payloadType == SEI_MSG_BUFFERING_PERIOD)
+        if (payloadType == SEI_MSG_PIC_TIMING || payloadType == SEI_MSG_BUFFERING_PERIOD)
         {
             tmpBufferLen -= 2;  // skip this sei message
         }
@@ -1519,8 +1475,8 @@ int SEIUnit::removePicTimingSEI(SPSUnit& sps)
     return tmpBufferLen;
 }
 
-void SEIUnit::sei_payload(SPSUnit& sps, int payloadType, uint8_t* curBuff, int payloadSize,
-                          int orig_hrd_parameters_present_flag)
+void SEIUnit::sei_payload(const SPSUnit& sps, const int payloadType, uint8_t* curBuff, const int payloadSize,
+                          const int orig_hrd_parameters_present_flag)
 {
     switch (payloadType)
     {
@@ -1600,7 +1556,7 @@ void SEIUnit::sei_payload(SPSUnit& sps, int payloadType, uint8_t* curBuff, int p
 
 void SEIUnit::buffering_period(int payloadSize) {}
 
-int SEIUnit::getNumClockTS(int pic_struct) const
+int SEIUnit::getNumClockTS(const int pic_struct)
 {
     int NumClockTS = 0;
     switch (pic_struct)
@@ -1620,18 +1576,22 @@ int SEIUnit::getNumClockTS(int pic_struct) const
     case 8:
         NumClockTS = 3;
         break;
+    default:;
     }
     return NumClockTS;
 }
 
-void SEIUnit::serialize_pic_timing_message(const SPSUnit& sps, BitStreamWriter& writer, bool seiHeader)
+void SEIUnit::serialize_pic_timing_message(const SPSUnit& sps, BitStreamWriter& writer, const bool seiHeader) const
 {
     if (seiHeader)
     {
-        writer.putBits(8, (int)NALType::nuSEI);
+        writer.putBits(8, static_cast<int>(NALType::nuSEI));
         writer.putBits(8, SEI_MSG_PIC_TIMING);
     }
+    uint8_t* size = writer.getBuffer() + writer.getBitsCount() / 8;
     writer.putBits(8, 0);
+    const unsigned beforeMessageLen = writer.getBitsCount();
+
     // pic timing
     if (sps.nalHrdParams.isPresent || sps.vclHrdParams.isPresent)
     {
@@ -1642,25 +1602,32 @@ void SEIUnit::serialize_pic_timing_message(const SPSUnit& sps, BitStreamWriter& 
     if (sps.pic_struct_present_flag)
     {
         writer.putBits(4, pic_struct);
-        int NumClockTS = getNumClockTS(pic_struct);
+        const int NumClockTS = getNumClockTS(pic_struct);
         for (int i = 0; i < NumClockTS; i++) writer.putBit(0);  // clock_timestamp_flag
         if (sps.nalHrdParams.time_offset_length > 0)
             writer.putBits(sps.nalHrdParams.time_offset_length, 0);
     }
     write_byte_align_bits(writer);
+    // ---------
+    const unsigned msgLen = writer.getBitsCount() - beforeMessageLen;
+    *size = static_cast<uint8_t>(msgLen / 8);
 
     if (seiHeader)
         write_rbsp_trailing_bits(writer);
 }
 
-void SEIUnit::serialize_buffering_period_message(const SPSUnit& sps, BitStreamWriter& writer, bool seiHeader)
+void SEIUnit::serialize_buffering_period_message(const SPSUnit& sps, BitStreamWriter& writer,
+                                                 const bool seiHeader) const
 {
     if (seiHeader)
     {
-        writer.putBits(8, (int)NALType::nuSEI);
+        writer.putBits(8, static_cast<int>(NALType::nuSEI));
         writer.putBits(8, SEI_MSG_BUFFERING_PERIOD);
     }
+    uint8_t* size = writer.getBuffer() + writer.getBitsCount() / 8;
     writer.putBits(8, 0);
+    const unsigned beforeMessageLen = writer.getBitsCount();
+
     // buffering period
     writeUEGolombCode(writer, sps.seq_parameter_set_id);
     if (sps.nalHrdParams.isPresent)
@@ -1684,19 +1651,24 @@ void SEIUnit::serialize_buffering_period_message(const SPSUnit& sps, BitStreamWr
         }
     }
     write_byte_align_bits(writer);
+    // ---------
+    const unsigned msgLen = writer.getBitsCount() - beforeMessageLen;
+    *size = static_cast<uint8_t>(msgLen / 8);
+
     if (seiHeader)
         write_rbsp_trailing_bits(writer);
 }
 
-void SEIUnit::pic_timing(SPSUnit& sps, uint8_t* curBuff, int payloadSize, bool orig_hrd_parameters_present_flag)
+void SEIUnit::pic_timing(const SPSUnit& sps, uint8_t* curBuff, const int payloadSize,
+                         const bool orig_hrd_parameters_present_flag)
 {
     bitReader.setBuffer(curBuff, curBuff + payloadSize);
     pic_timing(sps, orig_hrd_parameters_present_flag);
 }
 
-void SEIUnit::pic_timing(SPSUnit& sps, bool orig_hrd_parameters_present_flag)
+void SEIUnit::pic_timing(const SPSUnit& sps, const bool orig_hrd_parameters_present_flag)
 {
-    bool CpbDpbDelaysPresentFlag = orig_hrd_parameters_present_flag == 1;
+    const bool CpbDpbDelaysPresentFlag = orig_hrd_parameters_present_flag == 1;
     cpb_removal_delay = dpb_output_delay = 0;
     if (CpbDpbDelaysPresentFlag)
     {
@@ -1705,8 +1677,8 @@ void SEIUnit::pic_timing(SPSUnit& sps, bool orig_hrd_parameters_present_flag)
     }
     if (sps.pic_struct_present_flag)
     {
-        pic_struct = bitReader.getBits(4);
-        int numClockTS = getNumClockTS(pic_struct);
+        pic_struct = bitReader.getBits<int8_t>(4);
+        const int numClockTS = getNumClockTS(pic_struct);
 
         for (int i = 0; i < numClockTS; i++)
         {
@@ -1737,45 +1709,46 @@ void SEIUnit::deblocking_filter_display_preference(int payloadSize) {}
 void SEIUnit::stereo_video_info(int payloadSize) {}
 void SEIUnit::reserved_sei_message(int payloadSize) {}
 
-int SEIUnit::mvc_scalable_nesting(SPSUnit& sps, uint8_t* curBuf, int size, int orig_hrd_parameters_present_flag)
+int SEIUnit::mvc_scalable_nesting(const SPSUnit& sps, uint8_t* curBuf, const int size,
+                                  const int orig_hrd_parameters_present_flag)
 {
     try
     {
         bitReader.setBuffer(curBuf, curBuf + size);
-        int operation_point_flag = bitReader.getBit();
+        const int operation_point_flag = bitReader.getBit();
         if (!operation_point_flag)
         {
             if (!bitReader.getBit())  // all_view_components_in_au_flag
             {
-                unsigned num_view_components_minus1 = extractUEGolombCode();
+                const unsigned num_view_components_minus1 = extractUEGolombCode();
                 if (num_view_components_minus1 >= 1 << 10)
                     return 1;
-                for (size_t i = 0; i <= num_view_components_minus1; i++) bitReader.getBits(10);  // sei_view_id[ i ]
+                for (size_t i = 0; i <= num_view_components_minus1; i++) bitReader.skipBits(10);  // sei_view_id[ i ]
             }
         }
         else
         {
-            unsigned num_view_components_op_minus1 = extractUEGolombCode();
+            const unsigned num_view_components_op_minus1 = extractUEGolombCode();
             if (num_view_components_op_minus1 >= 1 << 10)
                 return 1;
             for (size_t i = 0; i <= num_view_components_op_minus1; i++)
             {
-                bitReader.getBits(13);  // sei_op_view_id[ i ], sei_op_temporal_id
+                bitReader.skipBits(13);  // sei_op_view_id[ i ], sei_op_temporal_id
             }
         }
-        int byteBits = bitReader.getBitsCount() % 8;
+        const int byteBits = bitReader.getBitsCount() % 8;
         if (byteBits)
             bitReader.skipBits(8 - byteBits);  // byte align
 
         m_mvcHeaderStart = bitReader.getBuffer();
         m_mvcHeaderLen = bitReader.getBitsCount() / 8;
 
-        int payloadType = bitReader.getBits(8);
+        const auto payloadType = bitReader.getBits<uint8_t>(8);
         int payloadSize = 0;
-        uint8_t sizePart = 0;
+        uint8_t sizePart;
         do
         {
-            sizePart = bitReader.getBits(8);
+            sizePart = bitReader.getBits<uint8_t>(8);
             payloadSize += sizePart;
         } while (sizePart == 0xff);
 
@@ -1783,12 +1756,12 @@ int SEIUnit::mvc_scalable_nesting(SPSUnit& sps, uint8_t* curBuf, int size, int o
         {
             if (bitReader.getBitsLeft() >= 128)
             {
-                uint8_t* bdData = curBuf + bitReader.getBitsCount() / 8;
+                const uint8_t* bdData = curBuf + bitReader.getBitsCount() / 8;
                 if (memcmp(bdData, BDROM_METADATA_GUID, 128 / 8) == 0)
                 {
                     // process bd rom meta data
                     for (int i = 0; i < 4; ++i) bitReader.skipBits(32);
-                    int type_indicator = bitReader.getBits(32);
+                    const auto type_indicator = bitReader.getBits(32);
                     switch (type_indicator)
                     {
                     case 0x4F464D44:
@@ -1797,6 +1770,7 @@ int SEIUnit::mvc_scalable_nesting(SPSUnit& sps, uint8_t* curBuf, int size, int o
                     case 0x47534D50:
                         processBlurayGopStructure();
                         break;
+                    default:;
                     }
                 }
             }
@@ -1823,22 +1797,22 @@ void SEIUnit::processBlurayGopStructure() {}
 void SEIUnit::processBlurayOffsetMetadata()
 {
     bitReader.skipBits(8);
-    uint8_t* ptr = bitReader.getBuffer() + bitReader.getBitsCount() / 8;
-    metadataPtsOffset = (int)(ptr - m_nalBuffer);
+    const uint8_t* ptr = bitReader.getBuffer() + bitReader.getBitsCount() / 8;
+    metadataPtsOffset = static_cast<int>(ptr - m_nalBuffer);
     bitReader.skipBits(24);  // PTS[32..30], marker_bit, PTS[29..15]
     bitReader.skipBits(18);  // marker_bit, PTS[14..0], marker_bit, reserved_for_future_use bit
-    number_of_offset_sequences = bitReader.getBits(6);
+    number_of_offset_sequences = bitReader.getBits<uint8_t>(6);
 }
 
-void SEIUnit::updateMetadataPts(uint8_t* metadataPtsPtr, int64_t pts)
+void SEIUnit::updateMetadataPts(uint8_t* metadataPtsPtr, const int64_t pts)
 {
     metadataPtsPtr[0] = (pts >> 30) & 0x07;
 
-    auto val = (uint16_t)((pts >> 15) & 0x7fff);
+    auto val = static_cast<uint16_t>((pts >> 15) & 0x7fff);
     metadataPtsPtr[1] = 0x80 + (val >> 8);
     metadataPtsPtr[2] = val & 0xff;
 
-    val = (uint16_t)(pts & 0x7fff);
+    val = static_cast<uint16_t>(pts & 0x7fff);
     metadataPtsPtr[3] = 0x80 + (val >> 8);
     metadataPtsPtr[4] = val & 0xff;
 }

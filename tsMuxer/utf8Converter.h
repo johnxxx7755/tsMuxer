@@ -1,5 +1,5 @@
-#ifndef __UTFCONVERTER__H__
-#define __UTFCONVERTER__H__
+#ifndef UTFCONVERTER_H_
+#define UTFCONVERTER_H_
 
 #include <types/types.h>
 
@@ -20,7 +20,7 @@ enum class SourceFormat
     sfUTF32be
 };
 
-std::string toUtf8(const uint8_t* start, size_t widesize, SourceFormat srcFormat);
+std::string toUtf8(const uint8_t* start, size_t numBytes, SourceFormat srcFormat);
 }  // namespace UtfConverter
 
 #endif

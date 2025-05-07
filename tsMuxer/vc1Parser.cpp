@@ -1,9 +1,9 @@
 #include "vc1Parser.h"
 
-#include <fs/systemlog.h>
-#include <memory.h>
-
+#include <cmath>
 #include <sstream>
+
+#include <fs/systemlog.h>
 
 #include "nalUnits.h"
 #include "vodCoreException.h"
@@ -14,7 +14,9 @@ using namespace std;
 
 const char* pict_type_str[4] = {"I_TYPE", "P_TYPE", "B_TYPE", "BI_TYPE"};
 
-static inline int get_unary(BitStreamReader& bitReader, int stop, int len)
+namespace
+{
+int get_unary(BitStreamReader& bitReader, const bool stop, const int len)
 {
     int i;
     for (i = 0; i < len && bitReader.getBit() != stop; i++)
@@ -22,37 +24,37 @@ static inline int get_unary(BitStreamReader& bitReader, int stop, int len)
     return i;
 }
 
-static inline int decode012(BitStreamReader& bitReader)
+int decode012(BitStreamReader& bitReader)
 {
-    int n = bitReader.getBit();
+    const int n = bitReader.getBit();
     if (n == 0)
         return 0;
-    else
-        return bitReader.getBit() + 1;
+    return bitReader.getBit() + 1;
 }
+}  // namespace
 
 // ---------------------------- VC1Unit ------------------------------------------
 
-void VC1Unit::updateBits(int bitOffset, int bitLen, int value)
+void VC1Unit::updateBits(const int bitOffset, const int bitLen, const int value) const
 {
-    uint8_t* ptr = (uint8_t*)bitReader.getBuffer() + bitOffset / 8;
+    uint8_t* ptr = bitReader.getBuffer() + bitOffset / 8;
     BitStreamWriter bitWriter{};
-    int byteOffset = bitOffset % 8;
+    const int byteOffset = bitOffset % 8;
     bitWriter.setBuffer(ptr, ptr + (bitLen / 8 + 5));
 
-    uint8_t* ptr_end = (uint8_t*)bitReader.getBuffer() + (bitOffset + bitLen) / 8;
-    int endBitsPostfix = 8 - ((bitOffset + bitLen) % 8);
+    const uint8_t* ptr_end = bitReader.getBuffer() + (bitOffset + bitLen) / 8;
+    const int endBitsPostfix = 8 - ((bitOffset + bitLen) % 8);
 
     if (byteOffset > 0)
     {
-        int prefix = *ptr >> (8 - byteOffset);
+        const int prefix = *ptr >> (8 - byteOffset);
         bitWriter.putBits(byteOffset, prefix);
     }
     bitWriter.putBits(bitLen, value);
 
     if (endBitsPostfix < 8)
     {
-        int postfix = *ptr_end & (1 << endBitsPostfix) - 1;
+        const int postfix = *ptr_end & (1 << endBitsPostfix) - 1;
         bitWriter.putBits(endBitsPostfix, postfix);
     }
     bitWriter.flushBits();
@@ -60,7 +62,7 @@ void VC1Unit::updateBits(int bitOffset, int bitLen, int value)
 
 // ---------------------------- VC1SequenceHeader ------------------------------------------
 
-string VC1SequenceHeader::getStreamDescr()
+string VC1SequenceHeader::getStreamDescr() const
 {
     std::ostringstream rez;
     rez << "Profile: ";
@@ -78,41 +80,39 @@ string VC1SequenceHeader::getStreamDescr()
     case Profile::ADVANCED:
         rez << "Advanced@" << level;
         break;
-    default:
-        rez << "Unknown";
-        break;
-    };
+    }
+
     rez << " Resolution: " << coded_width << ':' << coded_height;
     rez << (interlace ? 'i' : 'p') << "  ";
     rez << "Frame rate: ";
-    double fps = getFPS();
-    if (fps != 0)
+    const double fps = getFPS();
+    if (fps != 0.0)
         rez << fps;
     else
         rez << "not found";
     return rez.str();
 }
 
-double VC1SequenceHeader::getFPS()
+double VC1SequenceHeader::getFPS() const
 {
     if (time_base_num == 0 || time_base_den == 0)
         return 0;
-    double fps = time_base_den / (double)time_base_num;
+    const double fps = time_base_den / static_cast<double>(time_base_num);
     // if (fps > 25.0 && pulldown)
     //	fps /= 1.25;
     return fps;
 }
 
-void VC1SequenceHeader::setFPS(double value)
+void VC1SequenceHeader::setFPS(const double value)
 {
     // if (value < 25.0 && pulldown)
     //	value *= 1.25;
 
     if (m_fpsFieldBitVal > 0)
     {
-        int nr, dr;
-        int time_scale = (int)(value + 0.5) * 1000;
-        int num_units_in_tick = (int)(time_scale / value + 0.5);
+        int nr;
+        const int time_scale = lround(value) * 1000;
+        const int num_units_in_tick = lround(time_scale / value);
         if ((time_scale == 24000 || time_scale == 25000 || time_scale == 30000 || time_scale == 50000 ||
              time_scale == 60000) &&
             (num_units_in_tick == 1000 || num_units_in_tick == 1001))
@@ -121,8 +121,7 @@ void VC1SequenceHeader::setFPS(double value)
             time_base_num = num_units_in_tick;
         }
         else
-            THROW(ERR_VC1_ERR_FPS,
-                  "Can't overwrite stream fps. Non standard fps values not supported for VC-1 streams");
+            THROW(ERR_VC1_ERR_FPS, "Can't overwrite stream fps. Non standard fps values not supported for VC-1 streams")
 
         switch (time_scale)
         {
@@ -142,10 +141,9 @@ void VC1SequenceHeader::setFPS(double value)
             nr = 5;
             break;
         default:
-            THROW(ERR_VC1_ERR_FPS,
-                  "Can't overwrite stream fps. Non standard fps values not supported for VC-1 streams");
+            THROW(ERR_VC1_ERR_FPS, "Can't overwrite stream fps. Non standard fps values not supported for VC-1 streams")
         }
-        dr = (num_units_in_tick == 1000) ? 1 : 2;
+        const int dr = (num_units_in_tick == 1000) ? 1 : 2;
 
         updateBits(m_fpsFieldBitVal, 8, nr);
         updateBits(m_fpsFieldBitVal + 8, 4, dr);
@@ -157,7 +155,7 @@ int VC1SequenceHeader::decode_sequence_header()
     try
     {
         bitReader.setBuffer(m_nalBuffer, m_nalBuffer + m_nalBufferLen);  // skip 00 00 01 xx marker
-        profile = (Profile)bitReader.getBits(2);
+        profile = static_cast<Profile>(bitReader.getBits(2));
         if (profile == Profile::COMPLEX)
             LTRACE(LT_WARN, 0, "WMV3 Complex Profile is not fully supported");
 
@@ -165,7 +163,7 @@ int VC1SequenceHeader::decode_sequence_header()
             return decode_sequence_header_adv();
         else
         {
-            int res_sm = bitReader.getBits(2);  // reserved
+            const auto res_sm = bitReader.getBits<uint8_t>(2);  // reserved
             if (res_sm)
             {
                 LTRACE(LT_ERROR, 0, "Reserved RES_SM=" << res_sm << " is forbidden");
@@ -178,8 +176,8 @@ int VC1SequenceHeader::decode_sequence_header()
             LTRACE(LT_WARN, 0, "LOOPFILTER shell not be enabled in simple profile");
         if (bitReader.getBit())  // reserved res_x8
             LTRACE(LT_WARN, 0, "1 for reserved RES_X8 is forbidden");
-        bitReader.skipBit();                  // multires
-        int res_fasttx = bitReader.getBit();  // reserved
+        bitReader.skipBit();                        // multires
+        const int res_fasttx = bitReader.getBit();  // reserved
         if (!res_fasttx)
             LTRACE(LT_WARN, 0, "0 for reserved RES_FASTTX is forbidden");
         if (profile == Profile::SIMPLE && !bitReader.getBit())  // fastuvmc
@@ -204,7 +202,7 @@ int VC1SequenceHeader::decode_sequence_header()
         rangered = bitReader.getBit();
         if (rangered && profile == Profile::SIMPLE)
             LTRACE(LT_WARN, 0, "RANGERED should be set to 0 in simple profile");
-        max_b_frames = bitReader.getBits(3);
+        max_b_frames = bitReader.getBits<uint8_t>(3);
         bitReader.skipBits(2);  // quantizer_mode
         finterpflag = bitReader.getBit();
 
@@ -215,20 +213,21 @@ int VC1SequenceHeader::decode_sequence_header()
             bitReader.skipBits(16);
         return 0;
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 }
 
 int VC1SequenceHeader::decode_sequence_header_adv()
 {
-    level = bitReader.getBits(3);
+    level = bitReader.getBits<uint8_t>(3);
     if (level >= 5)
         LTRACE(LT_WARN, 0, "Reserved LEVEL " << level);
     bitReader.skipBits(11);  // chromaformat, frmrtq_postproc, bitrtq_postproc, postprocflag
-    coded_width = (bitReader.getBits(12) + 1) << 1;
-    coded_height = (bitReader.getBits(12) + 1) << 1;
+    coded_width = (bitReader.getBits<uint16_t>(12) + 1) * 2;
+    coded_height = (bitReader.getBits<uint16_t>(12) + 1) * 2;
     pulldown = bitReader.getBit();
     interlace = bitReader.getBit();
     tfcntrflag = bitReader.getBit();
@@ -244,19 +243,20 @@ if(psf) { //PsF, 6.1.13
     max_b_frames = 7;
     if (bitReader.getBit())
     {  // Display Info - decoding is not affected by it
-        int w, h, ar = 0;
-        display_width = w = bitReader.getBits(14) + 1;
-        display_height = h = bitReader.getBits(14) + 1;
+        uint16_t w, h;
+        uint8_t ar = 0;
+        display_width = w = bitReader.getBits<uint16_t>(14) + 1;
+        display_height = h = bitReader.getBits<uint16_t>(14) + 1;
         if (bitReader.getBit())
-            ar = bitReader.getBits(4);
-        if (ar && ar < 14)
+            ar = bitReader.getBits<uint8_t>(4);
+        if (ar > 0 && ar < 14)
         {
             sample_aspect_ratio = ff_vc1_pixel_aspect[ar];
         }
         else if (ar == 15)
         {
-            w = bitReader.getBits(8);
-            h = bitReader.getBits(8);
+            w = bitReader.getBits<uint8_t>(8);
+            h = bitReader.getBits<uint8_t>(8);
             sample_aspect_ratio = AVRational(w, h);
         }
 
@@ -265,14 +265,13 @@ if(psf) { //PsF, 6.1.13
             if (bitReader.getBit())
             {
                 time_base_num = 32;
-                time_base_den = bitReader.getBits(16) + 1;
+                time_base_den = bitReader.getBits<uint16_t>(16) + 1;
             }
             else
             {
-                int nr, dr;
                 m_fpsFieldBitVal = bitReader.getBitsCount();
-                nr = bitReader.getBits(8);
-                dr = bitReader.getBits(4);
+                const auto nr = bitReader.getBits<uint8_t>(8);
+                const auto dr = bitReader.getBits<uint8_t>(4);
                 if (nr > 0 && nr < 8 && dr > 0 && dr < 3)
                 {
                     time_base_num = ff_vc1_fps_dr[dr - 1];
@@ -290,7 +289,7 @@ if(psf) { //PsF, 6.1.13
     hrd_param_flag = bitReader.getBit();
     if (hrd_param_flag)
     {
-        hrd_num_leaky_buckets = bitReader.getBits(5);
+        hrd_num_leaky_buckets = bitReader.getBits<uint8_t>(5);
         bitReader.skipBits(8);  // bitrate exponent, buffer size exponent
         for (int i = 0; i < hrd_num_leaky_buckets; i++) bitReader.skipBits(32);  // hrd_rate[n], hrd_buffer[n]
     }
@@ -308,7 +307,7 @@ int VC1SequenceHeader::decode_entry_point()
         bitReader.skipBit();                                             // refdist flag
         bitReader.skipBit();                                             // loop_filter
         bitReader.skipBit();                                             // fastuvmc
-        int extended_mv = bitReader.getBit();
+        const int extended_mv = bitReader.getBit();
         bitReader.skipBits(6);  // dquant, vstransform, overlap, quantizer_mode
 
         if (hrd_param_flag)
@@ -318,8 +317,8 @@ int VC1SequenceHeader::decode_entry_point()
 
         if (bitReader.getBit())
         {
-            coded_width = (bitReader.getBits(12) + 1) << 1;
-            coded_height = (bitReader.getBits(12) + 1) << 1;
+            coded_width = (bitReader.getBits<uint16_t>(12) + 1) * 2;
+            coded_height = (bitReader.getBits<uint16_t>(12) + 1) * 2;
         }
         if (extended_mv)
             bitReader.skipBit();  // extended_dmv
@@ -335,26 +334,27 @@ int VC1SequenceHeader::decode_entry_point()
         }
         return 0;
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 }
 
 // -------------------------- VC1Frame ---------------------------
 
-int VC1Frame::decode_frame_direct(const VC1SequenceHeader& sequenceHdr, uint8_t* buffer, uint8_t* end)
+int VC1Frame::decode_frame_direct(const VC1SequenceHeader& sequenceHdr, uint8_t* buffer, const uint8_t* end)
 {
     try
     {
         bitReader.setBuffer(buffer, end);  // skip 00 00 01 xx marker
         if (sequenceHdr.profile < Profile::ADVANCED)
             return vc1_parse_frame_header(sequenceHdr);
-        else
-            return vc1_parse_frame_header_adv(sequenceHdr);
+        return vc1_parse_frame_header_adv(sequenceHdr);
     }
-    catch (BitStreamException)
+    catch (BitStreamException& e)
     {
+        (void)e;
         return NOT_ENOUGH_BUFFER;
     }
 }
@@ -366,7 +366,7 @@ int VC1Frame::vc1_parse_frame_header(const VC1SequenceHeader& sequenceHdr)
     bitReader.skipBits(2);    // framecnt
     if (sequenceHdr.rangered)
         bitReader.skipBit();  // rangeredfrm
-    pict_type = (VC1PictType)bitReader.getBit();
+    pict_type = static_cast<VC1PictType>(bitReader.getBit());
     if (sequenceHdr.max_b_frames > 0)
     {
         if (pict_type == VC1PictType::I_TYPE)
@@ -408,11 +408,12 @@ int VC1Frame::vc1_parse_frame_header_adv(const VC1SequenceHeader& sequenceHdr)
         case 7:
             pict_type = VC1PictType::BI_TYPE;
             break;
+        default:;
         }
     }
     else
     {
-        switch (get_unary(bitReader, 0, 4))
+        switch (get_unary(bitReader, false, 4))
         {
         case 0:
             pict_type = VC1PictType::P_TYPE;
@@ -429,6 +430,7 @@ int VC1Frame::vc1_parse_frame_header_adv(const VC1SequenceHeader& sequenceHdr)
         case 4:
             pict_type = VC1PictType::P_TYPE;  // skipped pic
             break;
+        default:;
         }
     }
 
@@ -439,7 +441,7 @@ int VC1Frame::vc1_parse_frame_header_adv(const VC1SequenceHeader& sequenceHdr)
         rptfrmBitPos = bitReader.getBitsCount();
         if (!sequenceHdr.interlace || sequenceHdr.psf)
         {
-            rptfrm = bitReader.getBits(2);  // Repeat Frame Count (0 .. 3)
+            rptfrm = bitReader.getBits<uint8_t>(2);  // Repeat Frame Count (0 .. 3)
         }
         else
         {

@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="fr">
+<TS version="2.1" language="es_ES">
 <context>
     <name>FontSettingsTableModel</name>
     <message>
         <location filename="../fontsettingstablemodel.cpp" line="134"/>
         <source>Name:</source>
-        <translation>Nom :</translation>
+        <translation>Nombre:</translation>
     </message>
     <message>
         <location filename="../fontsettingstablemodel.cpp" line="134"/>
         <source>Size:</source>
-        <translation>Taille :</translation>
+        <translation>Tamaño:</translation>
     </message>
     <message>
         <location filename="../fontsettingstablemodel.cpp" line="134"/>
         <source>Color:</source>
-        <translation>Couleur :</translation>
+        <translation>Color:</translation>
     </message>
     <message>
         <location filename="../fontsettingstablemodel.cpp" line="135"/>
         <source>Options:</source>
-        <translation>Options :</translation>
+        <translation>Opciones:</translation>
     </message>
 </context>
 <context>
@@ -2482,32 +2482,32 @@
     <message>
         <location filename="../muxForm.cpp" line="48"/>
         <source>Progress: </source>
-        <translation>Progression : </translation>
+        <translation>Progreso: </translation>
     </message>
     <message>
         <location filename="../muxForm.cpp" line="71"/>
         <source>Too many errors! tsMuxeR is terminated.</source>
-        <translation>Trop d&apos;erreurs ! tsMuxeR a abandonné.</translation>
+        <translation>¡Demasiados errores! tsMuxeR ha terminado.</translation>
     </message>
     <message>
         <location filename="../muxForm.cpp" line="84"/>
         <source>tsMuxeR successfully finished</source>
-        <translation>tsMuxeR a fini avec succès</translation>
+        <translation>tsMuxeR ha finalizado correctamente</translation>
     </message>
     <message>
         <location filename="../muxForm.cpp" line="86"/>
         <source>tsMuxeR finished with error code %1</source>
-        <translation>tsMuxeR a fini avec le code d&apos;erreur %1</translation>
+        <translation>tsMuxeR ha finalizado con un código de error %1</translation>
     </message>
     <message>
         <location filename="../muxForm.cpp" line="99"/>
         <source>terminating tsMuxeR...</source>
-        <translation>tsMuxeR est en train de terminer...</translation>
+        <translation>tsMuxeR está terminando...</translation>
     </message>
     <message>
         <location filename="../muxForm.cpp" line="102"/>
         <source>tsMuxeR is terminated</source>
-        <translation>tsMuxeR a terminé</translation>
+        <translation>tsMuxeR ha terminado</translation>
     </message>
 </context>
 <context>
@@ -2515,33 +2515,33 @@
     <message>
         <location filename="../tsmuxerwindow.ui" line="41"/>
         <source>Input</source>
-        <translation>Entrée</translation>
+        <translation>Entrada</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="54"/>
         <source>Input files:</source>
-        <translation>Fichiers en entrée :</translation>
+        <translation>Archivos de origen:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="99"/>
         <source>add</source>
-        <translation>ajouter</translation>
+        <translation>Añadir</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="115"/>
         <source>join</source>
-        <translation>joindre</translation>
+        <translation>Unir</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="147"/>
         <location filename="../tsmuxerwindow.ui" line="272"/>
         <source>remove</source>
-        <translation>retirer</translation>
+        <translation>Eliminar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="175"/>
         <source>Tracks:</source>
-        <translation>Pistes :</translation>
+        <translation>Pistas:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="203"/>
@@ -2551,32 +2551,32 @@
     <message>
         <location filename="../tsmuxerwindow.ui" line="208"/>
         <source>source file</source>
-        <translation>Fichier source</translation>
+        <translation>Origen</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="213"/>
         <source>codec</source>
-        <translation>codec</translation>
+        <translation>Códec</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="218"/>
         <source>lang</source>
-        <translation>langue</translation>
+        <translation>Idioma</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="223"/>
         <source>track info</source>
-        <translation>info piste</translation>
+        <translation>Info de la pista</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="236"/>
         <source>up</source>
-        <translation>monter</translation>
+        <translation>Arriba</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="246"/>
         <source>down</source>
-        <translation>descendre</translation>
+        <translation>Abajo</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="325"/>
@@ -2584,370 +2584,370 @@
         <location filename="../tsmuxerwindow.ui" line="810"/>
         <location filename="../tsmuxerwindow.cpp" line="93"/>
         <source>General track options</source>
-        <translation>Options générales de la piste</translation>
+        <translation>Opciones generales de la pista</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="343"/>
         <source>Change fps:</source>
-        <translation>Changer de fps :</translation>
+        <translation>Cambiar fps:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="409"/>
         <source>Remove pulldown</source>
-        <translation>Supprimer pulldown</translation>
+        <translation>Eliminar &apos;pulldown&apos;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="416"/>
         <source>Secondary (PIP)</source>
-        <translation>Secondaire (PIP)</translation>
+        <translation>Secundario (PIP)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="520"/>
         <source>AR</source>
-        <translation>Rapport hauteur/largeur</translation>
+        <translation>Proporción</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="540"/>
         <source>As source</source>
-        <translation>Comme la source</translation>
+        <translation>Origen</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="545"/>
         <source>1:1 (Square)</source>
-        <translation>1:1 (Carré)</translation>
+        <translation>1:1</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="568"/>
         <source>Change level:</source>
-        <translation>Changer le niveau :</translation>
+        <translation>Cambiar nivel:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="581"/>
         <source>Continually insert SPS/PPS</source>
-        <translation>Insérer des SPS/PPS en continu</translation>
+        <translation>Insertar SPS/PPS en continuo</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="608"/>
         <source>Do not change SEI and VUI data</source>
-        <translation>Ne pas changer les données SEI et VUI</translation>
+        <translation>No cambiar datos de SEI y VUI</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="613"/>
         <source>Insert SEI and VUI data if absent</source>
-        <translation>Insérer des données SEI et VUI si manquantes</translation>
+        <translation>Insertar datos de SEI y VUI faltantes</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="618"/>
         <source>Always rebuild  SEI and VUI data</source>
-        <translation>Toujours reconstruire les données SEI et VUI</translation>
+        <translation>Reconstruir siempre datos de SEI y VUI</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="660"/>
         <source>Delay (in ms):</source>
-        <translation>Délai (en ms) :</translation>
+        <translation>Retraso (en ms):</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="693"/>
         <location filename="../tsmuxerwindow.cpp" line="1050"/>
         <source>Downconvert HD audio</source>
-        <translation>Supprimer les données HD de l&apos;audio</translation>
+        <translation>Eliminar datos de audio HD</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="700"/>
         <source>Secondary</source>
-        <translation>Secondaire</translation>
+        <translation>Secundario</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="707"/>
         <source>Bind to video FPS</source>
-        <translation>Lier aux FPS de la vidéo</translation>
+        <translation>Vincular a FPS del vídeo</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="714"/>
         <source>3d offset:</source>
-        <translation>Décalage 3D :</translation>
+        <translation>Ajustes 3D:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="751"/>
         <source>Language:</source>
-        <translation>Langue :</translation>
+        <translation>Idioma:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="767"/>
         <location filename="../tsmuxerwindow.cpp" line="95"/>
         <source>Demux options</source>
-        <translation>Options de démuxage</translation>
+        <translation>Opciones de desmultiplexado</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="779"/>
         <source>Demux to multi channels WAVE file</source>
-        <translation>Démuxer vers un fichier audio WAV multicanal</translation>
+        <translation>Desmultiplexar a un archivo WAVE multicanal</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="792"/>
         <source>Demux to several mono WAVE files</source>
-        <translation>Démuxer vers plusieurs fichiers WAV en mono</translation>
+        <translation>Desmultiplexar a varios archivos WAVE en mono</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="802"/>
         <source>Demux to RAW PCM stream</source>
-        <translation>Démuxer vers un flux PCM en RAW</translation>
+        <translation>Desmultiplexar a un flujo PCM en RAW</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="819"/>
         <location filename="../tsmuxerwindow.ui" line="1080"/>
         <source>General</source>
-        <translation>Général</translation>
+        <translation>General</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="827"/>
         <source>Bitrate</source>
-        <translation>Bitrate</translation>
+        <translation>Tasa de &apos;bits&apos;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="840"/>
         <source>Mux VBR</source>
-        <translation>Muxer en VBR</translation>
+        <translation>Multiplexar con una tasa de &apos;bits&apos; variable</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="854"/>
         <source>Restricted VBR</source>
-        <translation>Restreindre le VBR à</translation>
+        <translation>Multiplexar con una tasa de &apos;bits&apos; en intervalo</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="873"/>
         <source>Max bitrate, kbps</source>
-        <translation>Bitrate max, en kb/s</translation>
+        <translation>Tasa de &apos;bits&apos; máx. (kbps)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="905"/>
         <source>Min bitrate, kbps</source>
-        <translation>Bitrate mini, en kb/s</translation>
+        <translation>Tasa de &apos;bits&apos; min. (kbps)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="960"/>
         <source>Mux CBR</source>
-        <translation>Muxer en CBR</translation>
+        <translation>Multiplexar con una tasa de &apos;bits&apos; constante</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="979"/>
         <source>Bitrate, kbps</source>
-        <translation>Bitrate, en kb/s</translation>
+        <translation>Tasa de &apos;bits&apos; (kbps)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1024"/>
         <source>VBV Buffer size, ms</source>
-        <translation>Taille du tampon VBV, en ms</translation>
+        <translation>Tamaño del búfer VBV (en ms)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1086"/>
         <source>Play sound at end</source>
-        <translation>Jouer un son quand le travail est terminé</translation>
+        <translation>Reproducir un sonido al finalizar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1096"/>
         <source>Generate HDMV compatible TS</source>
-        <translation>Générer un TS compatible HDMV</translation>
+        <translation>Generar un TS compatible con HDMV</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1109"/>
         <source>Restore cropped video to full size</source>
-        <translation>Restaurer une vidéo recadrée à sa taille d&apos;origine</translation>
+        <translation>Restaurar vídeo recortado a su tamaño original</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1119"/>
         <source>Default output folder</source>
-        <translation>Dossier de sortie par défaut</translation>
+        <translation>Carpeta de salida por defecto</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1125"/>
         <source>Use the latest output folder name</source>
-        <translation>Utiliser le dernier dossier de sortie utilisé</translation>
+        <translation>Usar el nombre de la última carpeta de salida</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1135"/>
         <source>Place output folder to a input folder</source>
-        <translation>Créer un dossier de sortie dans le dossier d&apos;entrée</translation>
+        <translation>Crear carpeta de salida dentro de la carpeta de origen</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1161"/>
         <source>Blu-ray</source>
-        <translation>Blu-Ray</translation>
+        <translation>Blu-ray</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1167"/>
         <source>Chapters</source>
-        <translation>Chapitres</translation>
+        <translation>Capítulos</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1176"/>
         <source>No chapters</source>
-        <translation>Pas de chapitre</translation>
+        <translation>Sin capítulos</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1185"/>
         <source>Insert chapter every</source>
-        <translation>Insérer un chapitre toutes les</translation>
+        <translation>Insertar capítulo cada</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1208"/>
         <source>minutes</source>
-        <translation>minutes</translation>
+        <translation>minutos</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1217"/>
         <source>Custom chapters list</source>
-        <translation>Liste personnalisée de chapitres</translation>
+        <translation>Lista de capítulos personalizada</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1224"/>
         <source>Chapters:</source>
-        <translation>Chapitres :</translation>
+        <translation>Capítulos:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1247"/>
         <source>Options</source>
-        <translation>Options</translation>
+        <translation>Opciones</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1253"/>
         <source>Add blank playlist for cropped video</source>
-        <translation>Ajouter une playlist vierge pour les vidéos recadrées</translation>
+        <translation>Añadir una lista de reproducción en blanco para los vídeos recortados</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1281"/>
         <source>Blank playlist</source>
-        <translation>Playlist vierge</translation>
+        <translation>Lista de reproducción en blanco</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1319"/>
         <source>Force BD-ROM V3 format</source>
-        <translation>Forcer le format BD-ROM V3</translation>
+        <translation>Forzar el formato BD-ROM V3</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1331"/>
         <source>First MPLS file</source>
-        <translation>Premier fichier MPLS</translation>
+        <translation>Primer archivo MPLS</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1354"/>
         <source>First M2TS file</source>
-        <translation>Premier fichier M2TS</translation>
+        <translation>Primer archivo M2TS</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1384"/>
         <source>Start mux time</source>
-        <translation>Heure de démarrage du muxage</translation>
+        <translation>Iniciar multiplexado desde</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1410"/>
         <source>45 Khz clock:</source>
-        <translation>Horloge 45 Khz :</translation>
+        <translation>Reloj de 45 khz:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1435"/>
         <source>3D settings</source>
-        <translation>Réglages pour la 3D</translation>
+        <translation>Ajustes de 3D</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1441"/>
         <source>Use base video stream for right eye</source>
-        <translation>Utiliser le flux vidéo de base pour l&apos;oeil droit</translation>
+        <translation>Usar el flujo de vídeo principal para el ojo derecho</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1457"/>
         <source>PIP settings</source>
-        <translation>Réglages de PIP</translation>
+        <translation>Ajustes de PIP</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1465"/>
         <source>Corner</source>
-        <translation>Coin</translation>
+        <translation>Esquina</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1493"/>
         <source>Top Left</source>
-        <translation>Haut Gauche</translation>
+        <translation>Arriba-izquierda</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1498"/>
         <source>Top Right</source>
-        <translation>Haut Droit</translation>
+        <translation>Arriba-derecha</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1503"/>
         <source>Bottom Right</source>
-        <translation>Bas Droit</translation>
+        <translation>Abajo-derecha</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1508"/>
         <source>Bottom Left</source>
-        <translation>Bas Gauche</translation>
+        <translation>Abajo-izquierda</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1555"/>
         <source>Horizontal offset</source>
-        <translation>Décalage horizontal</translation>
+        <translation>Ajuste horizontal</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1516"/>
         <source>Size</source>
-        <translation>Taille</translation>
+        <translation>Tamaño</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1527"/>
         <source>Not scaled</source>
-        <translation>Pas à l&apos;échelle</translation>
+        <translation>No escalado</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1532"/>
         <source>Half (x 1/2)</source>
-        <translation>Moitié (x 1/2)</translation>
+        <translation>Mitad (x 1/2)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1537"/>
         <source>Quarter (x 1/4)</source>
-        <translation>Quart (x 1/4)</translation>
+        <translation>Cuarto (x 1/4)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1542"/>
         <source>One and a Half (x 1.5)</source>
-        <translation>Un et demi (x 1,5)</translation>
+        <translation>Uno y medio (x 1.5)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1547"/>
         <source>Full Screen</source>
-        <translation>Plein écran</translation>
+        <translation>Pantalla completa</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1482"/>
         <source>Vertical offset</source>
-        <translation>Décalage vertical</translation>
+        <translation>Ajuste vertical</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1572"/>
         <source>Transparency</source>
-        <translation>Transparence</translation>
+        <translation>Transparencia</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1594"/>
         <source>Default tracks</source>
-        <translation>Pistes par défaut</translation>
+        <translation>Pistas por defecto</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1600"/>
         <source>Subtitle</source>
-        <translation>Sous-titres</translation>
+        <translation>Subtítulos</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1610"/>
         <source>When checked, only subtitles marked as &quot;forced&quot; in the subtitle stream will appear.</source>
-        <translation>Lorsque cette case est cochée, seuls les sous-titres marqués comme &quot;forcés&quot; dans le flux de sous-titres seront affichés.</translation>
+        <translation>Si está activo, solo aparecerán los subtítulos marcados como &apos;forzados&apos; en la pestaña previa.</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1613"/>
         <source>Forced only</source>
-        <translation>Forcés uniquement</translation>
+        <translation>Solo forzados</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1620"/>
@@ -2957,77 +2957,77 @@
     <message>
         <location filename="../tsmuxerwindow.ui" line="1660"/>
         <source>Split &amp;&amp; cut</source>
-        <translation>Diviser &amp;&amp; couper</translation>
+        <translation>Dividir y cortar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1675"/>
         <source>Splitting</source>
-        <translation>Diviser</translation>
+        <translation>Dividir</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1686"/>
         <source>No split</source>
-        <translation>Pas de division</translation>
+        <translation>No dividir</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1696"/>
         <source>Split by duration every</source>
-        <translation>Diviser toutes les</translation>
+        <translation>Dividir por duración cada</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1722"/>
         <source>sec</source>
-        <translation>secondes</translation>
+        <translation>seg(s)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1729"/>
         <source>Split by size every</source>
-        <translation>Diviser par tranche de</translation>
+        <translation>Dividir por tamaño cada</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1762"/>
         <source>KB</source>
-        <translation>Ko</translation>
+        <translation>KB</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1767"/>
         <source>KiB</source>
-        <translation>Kio</translation>
+        <translation>KiB</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1772"/>
         <source>MB</source>
-        <translation>Mo</translation>
+        <translation>MB</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1777"/>
         <source>MiB</source>
-        <translation>Mio</translation>
+        <translation>MiB</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1782"/>
         <source>GB</source>
-        <translation>Go</translation>
+        <translation>GB</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1787"/>
         <source>GiB</source>
-        <translation>Gio</translation>
+        <translation>GiB</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1819"/>
         <source>Cutting</source>
-        <translation>Couper</translation>
+        <translation>Cortar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1830"/>
         <source>Enable cutting</source>
-        <translation>Activer</translation>
+        <translation>Habilitar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1841"/>
         <source>Start</source>
-        <translation>Début</translation>
+        <translation>Inicio</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1851"/>
@@ -3037,196 +3037,196 @@
     <message>
         <location filename="../tsmuxerwindow.ui" line="1931"/>
         <source>Subtitles</source>
-        <translation>Sous-titres</translation>
+        <translation>Subtítulos</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1946"/>
         <source> Default text based subtitles font: </source>
-        <translation> Police par défaut utilisée pour les sous-titres à base de texte : </translation>
+        <translation> Fuente por defecto para los subtítulos: </translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1990"/>
         <source>Font</source>
-        <translation>Police</translation>
+        <translation>Fuente</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="1997"/>
         <source>Color</source>
-        <translation>Couleur</translation>
+        <translation>Color</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2021"/>
         <source>Additional border, pixels:</source>
-        <translation>Bordure aditionnelle, en pixels :</translation>
+        <translation>Borde adicional, píxeles:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2047"/>
         <source>line spacing:</source>
-        <translation>Interligne :</translation>
+        <translation>Interlineado:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2073"/>
         <source>Fade in/out animation:</source>
-        <translation>Animation de fondu en entrée/sortie :</translation>
+        <translation>Animación de fundido:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2084"/>
         <source>None</source>
-        <translation>Aucune</translation>
+        <translation>Ninguna</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2089"/>
         <source>Fast</source>
-        <translation>Rapide</translation>
+        <translation>Rápida</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2094"/>
         <source>Medium</source>
-        <translation>Moyenne</translation>
+        <translation>Mediana</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2099"/>
         <source>Slow</source>
-        <translation>Lente</translation>
+        <translation>Lenta</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2104"/>
         <source>Very slow</source>
-        <translation>Très lente</translation>
+        <translation>Muy lenta</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2140"/>
         <source> Vertical position: </source>
-        <translation> Position verticale : </translation>
+        <translation> Posición vertical: </translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2151"/>
         <source>Top of screen</source>
-        <translation>En haut de l&apos;écran</translation>
+        <translation>Parte superior de la pantalla</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2185"/>
         <source>top offset, pixels:</source>
-        <translation>Nombre de pixels depuis le haut de l&apos;écran :</translation>
+        <translation>Ajuste superior, píxeles:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2219"/>
         <location filename="../tsmuxerwindow.ui" line="2391"/>
         <source>Screen center</source>
-        <translation>Au centre de l&apos;écran</translation>
+        <translation>Centro de la pantalla</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2226"/>
         <source>Bottom of screen</source>
-        <translation>En bas de l&apos;écran</translation>
+        <translation>Parte inferior de la pantalla</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2260"/>
         <source>bottom offset, pixels:</source>
-        <translation>Nombre de pixels depuis le bas de l&apos;écran :</translation>
+        <translation>Ajuste inferior, píxeles:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2312"/>
         <source> Horizontal position: </source>
-        <translation> Position horizontale : </translation>
+        <translation> Posición horizontal: </translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2323"/>
         <source>Left of screen</source>
-        <translation>À gauche de l&apos;écran</translation>
+        <translation>Parte izquierda de la pantalla</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2357"/>
         <source>left offset, pixels:</source>
-        <translation>Nombre de pixels depuis la gauche de l&apos;écran :</translation>
+        <translation>Ajuste izquierdo, píxeles:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2404"/>
         <source>Right of screen</source>
-        <translation>À droite de l&apos;écran</translation>
+        <translation>Parte derecha de la pantalla</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2441"/>
         <source>right offset, pixels:</source>
-        <translation>Nombre de pixels depuis la droite de l&apos;écran :</translation>
+        <translation>Ajuste derecho, píxeles:</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2506"/>
         <source>About</source>
-        <translation>À propos</translation>
+        <translation>Acerca de</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2558"/>
         <source>Output</source>
-        <translation>Sortie</translation>
+        <translation>Salida</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2572"/>
         <source>TS muxing</source>
-        <translation>Muxage en TS</translation>
+        <translation>Multiplexar en TS</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2588"/>
         <source>M2TS muxing</source>
-        <translation>Muxage en M2TS</translation>
+        <translation>Multiplexar en M2TS</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2595"/>
         <source>Blu-ray ISO</source>
-        <translation>ISO de Blu-Ray</translation>
+        <translation>Blu-ray (.iso)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2608"/>
         <source>Blu-ray folder</source>
-        <translation>Dossier de Blu-Ray</translation>
+        <translation>Blu-ray (carpeta)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2615"/>
         <source>AVCHD folder</source>
-        <translation>Dossier AVCHD</translation>
+        <translation>AVCHD (carpeta)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2628"/>
         <location filename="../tsmuxerwindow.cpp" line="1435"/>
         <source>Demux</source>
-        <translation>Démuxer</translation>
+        <translation>Desmultiplexar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2652"/>
         <source>Disk label</source>
-        <translation>Titre du disque</translation>
+        <translation>Título del disco</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2662"/>
         <location filename="../tsmuxerwindow.cpp" line="2322"/>
         <source>File name</source>
-        <translation>Nom du fichier</translation>
+        <translation>Nombre del archivo</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2688"/>
         <source>Browse</source>
-        <translation>Parcourir</translation>
+        <translation>Explorar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2712"/>
         <source>Meta file</source>
-        <translation>Fichier Meta</translation>
+        <translation>Archivo de proyecto</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2781"/>
         <location filename="../tsmuxerwindow.cpp" line="2306"/>
         <source>Start muxing</source>
-        <translation>Démarrer le muxage</translation>
+        <translation>Iniciar multiplexado</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.ui" line="2806"/>
         <source>Save meta file</source>
-        <translation>Sauvegarder le fichier Meta</translation>
+        <translation>Guardar archivo de proyecto</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="53"/>
         <source>All files</source>
-        <translation>Tous les fichiers</translation>
+        <translation>Todos los archivos</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="59"/>
@@ -3236,12 +3236,12 @@
     <message>
         <location filename="../tsmuxerwindow.cpp" line="60"/>
         <source>AAC (advanced audio coding)</source>
-        <translation>AAC (advanced audio coding)</translation>
+        <translation>AAC (Advanced Audio Coding)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="61"/>
         <source>AVC/MVC/H.264 elementary stream</source>
-        <translation>AVC/MVC/H.264 flux élémentaire</translation>
+        <translation>AVC/MVC/H.264</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="62"/>
@@ -3251,7 +3251,7 @@
     <message>
         <location filename="../tsmuxerwindow.cpp" line="63"/>
         <source>Digital Theater System</source>
-        <translation>Digital Theater System</translation>
+        <translation>DTS (Digital Theater System)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="64"/>
@@ -3261,258 +3261,259 @@
     <message>
         <location filename="../tsmuxerwindow.cpp" line="65"/>
         <source>TrueHD/AC3+TrueHD</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">TrueHD/AC3+TrueHD</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="66"/>
         <source>Mpeg video elementary stream</source>
-        <translation>Flux vidéo élémentaire Mpeg</translation>
+        <translation>Vídeo MPEG</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="67"/>
         <source>Mpeg audio elementary stream</source>
-        <translation>Flux audio élémentaire Mpeg</translation>
+        <translation>Audio MPEG</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="68"/>
         <location filename="../tsmuxerwindow.cpp" line="97"/>
         <source>Transport Stream</source>
-        <translation>Transport Stream</translation>
+        <translation>MPEG-TS (Transport Stream)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="69"/>
         <location filename="../tsmuxerwindow.cpp" line="101"/>
         <source>BDAV Transport Stream</source>
-        <translation>BDAV Transport Stream</translation>
+        <translation>M2TS (Blu-ray Disc Audio-Video)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="70"/>
         <source>Program Stream</source>
-        <translation>Program Stream</translation>
+        <translation>MPEG-PS</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="71"/>
         <source>Matroska audio/video files</source>
-        <translation>Fichiers audio/vidéo Matroska</translation>
+        <translation>MKV (vídeo/audio matroska)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="72"/>
         <source>MP4 audio/video files</source>
-        <translation>Fichiers audio/vidéo MP4</translation>
+        <translation>MP4 (vídeo/audio)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="73"/>
         <source>QuickTime audio/video files</source>
-        <translation>Fichiers audio/vidéo QuickTime</translation>
+        <translation>MOV (QuickTime)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="74"/>
         <source>Blu-ray play list</source>
-        <translation>Liste de lecture Blu-Ray</translation>
+        <translation>Lista de reproducción Blu-ray</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="75"/>
         <source>Blu-ray PGS subtitles</source>
-        <translation>Sous-titres PGS de Blu-ray</translation>
+        <translation>PGS (subtítulos Blu-ray)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="76"/>
         <source>Text subtitles</source>
-        <translation>Sous-titres à base de texte</translation>
+        <translation>SRT (subtítulos de texto)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="77"/>
         <source>WAVE - Uncompressed PCM audio</source>
-        <translation>WAVE - Audio PCM non compressé</translation>
+        <translation>WAVE (audio PCM no comprimido)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="78"/>
         <source>RAW LPCM Stream</source>
-        <translation>Flux LPCM RAW</translation>
+        <translation>Flujo RAW/LPCM</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="89"/>
         <source>All supported media files</source>
-        <translation>Tous les fichiers média pris en charge</translation>
+        <translation>Todos los archivos multimedia soportados</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="104"/>
         <source>Disk image</source>
-        <translation>Image disque</translation>
+        <translation>Imagen de disco</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="591"/>
         <source>Not supported</source>
-        <translation>Non pris en charge</translation>
+        <translation>No soportado</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="657"/>
         <location filename="../tsmuxerwindow.cpp" line="1175"/>
         <source>Unsupported format</source>
-        <translation>Format non pris en charge</translation>
+        <translation>Formato no soportado</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="658"/>
         <source>Can&apos;t detect stream type. File name: &quot;%1&quot;</source>
-        <translation>Impossible de déterminer le type de flux pour le fichier : &quot;%1&quot;</translation>
+        <translation>No se puede detectar el formato del archivo: &quot;%1&quot;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="951"/>
         <source>Add media files</source>
-        <translation>Ajouter un fichiers médias</translation>
+        <translation>Añadir archivos multimedia</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="966"/>
         <source>File already exists</source>
-        <translation>Le fichier existe déjà</translation>
+        <translation>El archivo ya existe</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="967"/>
         <source>File &quot;%1&quot; already exists</source>
-        <translation>Le fichier &quot;%1&quot; existe déjà</translation>
+        <translation>El archivo &quot;%1&quot; ya existe</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1044"/>
         <source>Downconvert DTS-HD to DTS</source>
-        <translation>Réduire le DTS-HD en DTS</translation>
+        <translation>Convertir DTS-HD en DTS</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1046"/>
         <source>Downconvert TRUE-HD to AC3</source>
-        <translation>Réduire le TRUE-HD en AC3</translation>
+        <translation>Convertir TRUE-HD en AC3</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1048"/>
         <source>Downconvert E-AC3 to AC3</source>
-        <translation>Réduire le E-AC3 en AC3</translation>
+        <translation>Convertir E-AC3 en AC3</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1181"/>
         <source>Unsupported format or all tracks are not recognized. File name: &quot;%1&quot;</source>
-        <translation>Format non pris en charge ou aucune piste n&apos;a été reconnue pour le fichier &quot;%1&quot;</translation>
+        <translation>Formato no soportado o ninguna pista reconocible en el archivo: &quot;%1&quot;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1191"/>
         <source>Track %1 was not recognized and ignored. File name: &quot;%2&quot;</source>
-        <translation>La piste %1 n&apos;a pas été reconnue et a été ignorée pour le fichier &quot;%2&quot;</translation>
+        <translation>La pista %1 no fue reconocida en el archivo: &quot;%2&quot;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1435"/>
         <source>Mux</source>
-        <translation>Muxer</translation>
+        <translation>Multiplexar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1454"/>
         <source>tsMuxeR error</source>
-        <translation>Erreur de tsMuxeR</translation>
+        <translation>Error de tsMuxeR</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1458"/>
         <source>tsMuxeR not found!</source>
-        <translation>tsMuxer introuvable !</translation>
+        <translation>¡tsMuxeR no encontrado!</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="1476"/>
         <source>Can&apos;t execute tsMuxeR!</source>
-        <translation>Impossible d&apos;exécuter tsMuxer !</translation>
+        <translation>¡No se puede ejecutar tsMuxeR!</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2182"/>
         <location filename="../tsmuxerwindow.cpp" line="2183"/>
         <source>No track selected</source>
-        <translation>Aucune piste sélectionnée</translation>
+        <translation>Ninguna pista seleccionada</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2189"/>
         <source>Append media files</source>
-        <translation>Concaténer un fichiers médias</translation>
+        <translation>Adjuntar archivos multimedia</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2205"/>
         <source>Invalid file extension</source>
-        <translation>Extension de fichier non valide</translation>
+        <translation>Extensión de archivo inválida</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2206"/>
         <source>Appended file must have same file extension.</source>
-        <translation>Le fichier concaténé doit avoir la même extension de fichier.</translation>
+        <translation>El archivo adjunto debe tener la misma extensión.</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2304"/>
         <source>Sta&amp;rt demuxing</source>
-        <translation>Déma&amp;rrer le démuxage</translation>
+        <translation>Ini&amp;ciar multiplexado</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2318"/>
         <source>Folder</source>
-        <translation>Dossier</translation>
+        <translation>Carpeta</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2404"/>
         <source>Select file for muxing</source>
-        <translation>Sélectionner un fichier pour le muxage</translation>
+        <translation>Seleccionar archivo que multiplexar</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2426"/>
         <location filename="../tsmuxerwindow.cpp" line="2442"/>
         <source>Invalid file name</source>
-        <translation>Nom de fichier non valide</translation>
+        <translation>Nombre de archivo inválido</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2427"/>
         <source>The output file &quot;%1&quot; has invalid extension. Please, change file extension to &quot;.m2ts&quot;</source>
-        <translation>Le fichier de sortie &quot;%1&quot;&apos; n&apos;a pas une extension valide. Veuillez changer l&apos;extension du fichier en &quot;.m2ts&quot;</translation>
+        <translation>El archivo de salida &quot;%1&quot; tiene una extensión inválida. Por favor, cámbiela a &quot;.m2ts&quot;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2443"/>
         <source>The output file &quot;%1&quot; has invalid extension. Please, change file extension to &quot;.iso&quot;</source>
-        <translation>Le fichier de sortie &quot;%1&quot;&apos; n&apos;a pas une extension valide. Veuillez changer l&apos;extension du fichier en &quot;.iso&quot;</translation>
+        <translation>El archivo de salida &quot;%1&quot; tiene una extensión inválida. Por favor, cámbiela a &quot;.iso&quot;</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2457"/>
         <source>file</source>
         <extracomment>Used in expressions &quot;Overwrite existing %1&quot; and &quot;The output %1 already exists&quot;.</extracomment>
-        <translation>fichier</translation>
+        <translation>archivo</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2457"/>
         <source>directory</source>
-        <translation>dossier</translation>
+        <translation>carpeta</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2459"/>
         <source>Overwrite existing %1?</source>
-        <translation>Écraser %1 qui existe déjà ?</translation>
+        <translation>¿Sobrescribir %1 existente?</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2460"/>
         <source>The output %1 &quot;%2&quot; already exists. Do you want to overwrite it?</source>
-        <translation>Le %1 &quot;%2&quot; existe déjà. Souhaitez-vous l&apos;écraser ?</translation>
+        <translatorcomment>El %1 &quot;%2&quot; ya existe. ¿Desea sobrescribirlo?</translatorcomment>
+        <translation>The output %1 &quot;%2&quot; already exists. Do you want to overwrite it?</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2477"/>
         <source>Muxing in progress</source>
-        <translation>Muxage en cours</translation>
+        <translation>Multiplexado en proceso</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2477"/>
         <source>Demuxing in progress</source>
-        <translation>Démuxage en cours</translation>
+        <translation>Desmultiplexado en proceso</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2491"/>
         <source>tsMuxeR project file (*.meta);;All files (*.*)</source>
-        <translation>Fichier de projet tsMuxeR (*.meta);;Tous les fichiers (*.*)</translation>
+        <translation>Archivo de proyecto tsMuxeR (*.meta);;Todos los archivos (*.*)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2506"/>
         <source>Can&apos;t create temporary meta file</source>
-        <translation>Impossible de créer le fichier Meta temporaire</translation>
+        <translation>No se ha podido crear el archivo de proyecto (.meta)</translation>
     </message>
     <message>
         <location filename="../tsmuxerwindow.cpp" line="2507"/>
         <source>Can&apos;t create temporary meta file &quot;%1&quot;</source>
-        <translation>Impossible de créer le fichier Meta temporaire &quot;%1&quot;</translation>
+        <translation>No se ha podido crear el archivo de proyecto &quot;%1&quot;</translation>
     </message>
 </context>
 <context>
@@ -3520,47 +3521,47 @@
     <message>
         <location filename="../muxForm.ui" line="13"/>
         <source>Muxing in progress</source>
-        <translation>Muxage en cours</translation>
+        <translation>Multiplexado en proceso</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="32"/>
         <source>Status and progress</source>
-        <translation>Statut et progression</translation>
+        <translation>Estado y progreso</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="43"/>
         <source>Muxing in progress.</source>
-        <translation>Muxage en cours.</translation>
+        <translation>Multiplexado en proceso.</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="73"/>
         <source>Progress: 0.0%</source>
-        <translation>Progression : 0.0%</translation>
+        <translation>Progreso: 0,0%</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="98"/>
         <source>Output</source>
-        <translation>Sortie</translation>
+        <translation>Salida</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="114"/>
         <source>tsMuxeR output:</source>
-        <translation>Journal de sortie de tsMuxeR :</translation>
+        <translation>Registro:</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="144"/>
         <source>Errors:</source>
-        <translation>Erreurs :</translation>
+        <translation>Errores:</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="198"/>
         <source>OK</source>
-        <translation>OK</translation>
+        <translation>Aceptar</translation>
     </message>
     <message>
         <location filename="../muxForm.ui" line="211"/>
         <source>Abort</source>
-        <translation>Annuler</translation>
+        <translation>Cancelar</translation>
     </message>
 </context>
 </TS>

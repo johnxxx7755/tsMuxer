@@ -1,19 +1,37 @@
 #include "mlpCodec.h"
 
 #include "bitStream.h"
+#include "pgsStreamReader.h"
 #include "vod_common.h"
 
-static const int HD_SYNC_WORD = 0xf8726f;
-
-static const uint8_t mlp_channels[32] = {1, 2, 3, 4, 3, 4, 5, 3, 4, 5, 4, 5, 6, 4, 5, 4,
-                                         5, 6, 5, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-static const uint8_t thd_chancount[13] = {
+namespace
+{
+constexpr uint8_t thd_chancount[13] = {
     //  LR    C   LFE  LRs LRvh  LRc LRrs  Cs   Ts  LRsd  LRw  Cvh  LFE2
     2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 1, 1};
 
+uint8_t numChannels6(const uint8_t chanmap)
+{
+    uint8_t channels = 0;
+    for (int i = 0; i < 5; i++) channels += thd_chancount[i] * ((chanmap >> i) & 1);
+    return channels;
+}
+
+uint8_t numChannels8(const uint16_t chanmap)
+{
+    uint8_t channels = 0;
+    for (int i = 0; i < 13; i++) channels += thd_chancount[i] * ((chanmap >> i) & 1);
+    return channels;
+}
+}  // namespace
+
+static constexpr int HD_SYNC_WORD = 0xf8726f;
+
+static constexpr uint8_t mlp_channels[32] = {1, 2, 3, 4, 3, 4, 5, 3, 4, 5, 4, 5, 6, 4, 5, 4,
+                                             5, 6, 5, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
 // returns 48/96/192/44.1/88.2/176.4 kHz, or 0 on error
-int MLPCodec::mlp_samplerate(int ratebits)
+int MLPCodec::mlp_samplerate(const int ratebits)
 {
     switch (ratebits)
     {
@@ -34,39 +52,24 @@ int MLPCodec::mlp_samplerate(int ratebits)
     }
 }
 
-uint64_t MLPCodec::getFrameDurationNano() { return INTERNAL_PTS_FREQ * m_samples / m_samplerate; }
-
-static int numChannels6(int chanmap)
-{
-    int channels = 0;
-    for (int i = 0; i < 5; i++) channels += thd_chancount[i] * ((chanmap >> i) & 1);
-    return channels;
-}
-
-static int numChannels8(int chanmap)
-{
-    int channels = 0;
-    for (int i = 0; i < 13; i++) channels += thd_chancount[i] * ((chanmap >> i) & 1);
-    return channels;
-}
+uint64_t MLPCodec::getFrameDuration() const { return INTERNAL_PTS_FREQ * m_samples / m_samplerate; }
 
 // returns frame position starting with sync_word 0xf8726f
-uint8_t* MLPCodec::findFrame(uint8_t* buffer, uint8_t* end)
+uint8_t* MLPCodec::findFrame(uint8_t* buffer, const uint8_t* end)
 {
     uint8_t* curBuf = buffer;
     while (curBuf < end)
     {
         if (curBuf[4] == 0xf8 && curBuf[5] == 0x72 && curBuf[6] == 0x6f)
             return curBuf;
-        else
-            curBuf++;
+        curBuf++;
     }
-    return 0;
+    return nullptr;
 }
 
-int MLPCodec::getFrameSize(uint8_t* buffer) { return ((buffer[0] & 0x0f) << 9) + (buffer[1] << 1); }
+int MLPCodec::getFrameSize(const uint8_t* buffer) { return ((buffer[0] & 0x0f) << 9) + (buffer[1] << 1); }
 
-bool MLPCodec::isMinorSync(uint8_t* buffer, uint8_t* end)
+bool MLPCodec::isMinorSync(const uint8_t* buffer, uint8_t* end) const
 {
     /* The first nibble of a frame is a parity check of the 4-byte
        access unit header and all the 2- or 4-byte substream headers. */
@@ -98,14 +101,14 @@ bool MLPCodec::decodeFrame(uint8_t* buffer, uint8_t* end)
     if (reader.getBits(24) != HD_SYNC_WORD) /* Sync words */
         return isMinorSync(buffer, end);
 
-    int ratebits = 0;
-    int stream_type = reader.getBits(8);
+    uint8_t ratebits;
+    const auto stream_type = reader.getBits<uint8_t>(8);
 
     if (stream_type == 0xbb)  // MLP
     {
         m_subType = MlpSubType::stMLP;
         reader.skipBits(8);  // group1_bits, group2_bits
-        ratebits = reader.getBits(4);
+        ratebits = reader.getBits<uint8_t>(4);
         m_samplerate = mlp_samplerate(ratebits);
         if (m_samplerate == 0)
             return false;
@@ -116,16 +119,16 @@ bool MLPCodec::decodeFrame(uint8_t* buffer, uint8_t* end)
     else if (stream_type == 0xba)  // True-HD
     {
         m_subType = MlpSubType::stTRUEHD;
-        ratebits = reader.getBits(4);  // audio_sampling_frequency
+        ratebits = reader.getBits<uint8_t>(4);  // audio_sampling_frequency
         m_samplerate = mlp_samplerate(ratebits);
         if (m_samplerate == 0)
             return false;
         if (reader.getBits(2) > 0)  // 6/8ch_multichannel_type: 0 = standard loudspeaker layout
             return false;
         reader.skipBits(6);  // reserved, 2ch_presentation_channel_modifier, 6ch_presentation_channel_modifier
-        int channel_assign_6 = reader.getBits(5);   // 6ch_presentation_channel_assignment
-        reader.skipBits(2);                         // 8ch_presentation_channel_modifier
-        int channel_assign_8 = reader.getBits(13);  // 8ch_presentation_channel_assignment
+        const auto channel_assign_6 = reader.getBits<uint8_t>(5);    // 6ch_presentation_channel_assignment
+        reader.skipBits(2);                                          // 8ch_presentation_channel_modifier
+        const auto channel_assign_8 = reader.getBits<uint16_t>(13);  // 8ch_presentation_channel_assignment
 
         if (channel_assign_8 > 0)
         {
@@ -146,9 +149,10 @@ bool MLPCodec::decodeFrame(uint8_t* buffer, uint8_t* end)
     m_samples = 40 << (ratebits & 7);
     if (reader.getBits(16) != 0xB752)  // signature
         return false;
-    reader.skipBits(32);                                                            // flags, reserved
-    reader.skipBit();                                                               // is_vbr
-    m_bitrate = (reader.getBits(15) /* peak_data_rate */ * m_samplerate + 8) >> 4;  // + 8 is for rounding to nearest
-    m_substreams = reader.getBits(4);
+    reader.skipBits(32);  // flags, reserved
+    reader.skipBit();     // is_vbr
+    m_bitrate =
+        (reader.getBits<uint16_t>(15) /* peak_data_rate */ * m_samplerate + 8) >> 4;  // + 8 is for rounding to nearest
+    m_substreams = reader.getBits<uint8_t>(4);
     return true;
 }

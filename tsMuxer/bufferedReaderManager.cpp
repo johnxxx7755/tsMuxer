@@ -1,18 +1,17 @@
 #include "bufferedReaderManager.h"
 
-#include <fs/systemlog.h>
-#include <limits.h>
+#include <climits>
 
 using namespace std;
 
-BufferedReaderManager::BufferedReaderManager(uint32_t readersCnt, uint32_t blockSize, uint32_t allocSize,
-                                             uint32_t prereadThreshold)
+BufferedReaderManager::BufferedReaderManager(const uint32_t readersCnt, const uint32_t blockSize,
+                                             const uint32_t allocSize, const uint32_t prereadThreshold)
 {
     init(blockSize, allocSize, prereadThreshold);
 
     for (uint32_t i = 0; i < readersCnt; i++)
     {
-        BufferedReader* reader = new BufferedFileReader(m_blockSize, m_allocSize, m_prereadThreshold);
+        BufferedReader* reader = new BufferedFileReader(blockSize, allocSize, prereadThreshold);
         reader->setId(i);
         m_fileReaders.push_back(reader);
     }
@@ -20,7 +19,7 @@ BufferedReaderManager::BufferedReaderManager(uint32_t readersCnt, uint32_t block
     m_readersCnt = readersCnt;
 }
 
-void BufferedReaderManager::init(uint32_t blockSize, uint32_t allocSize, uint32_t prereadThreshold)
+void BufferedReaderManager::init(const uint32_t blockSize, const uint32_t allocSize, const uint32_t prereadThreshold)
 {
     m_blockSize = blockSize > 0 ? blockSize : DEFAULT_FILE_BLOCK_SIZE;
     m_allocSize = allocSize > 0 ? allocSize : m_blockSize + MAX_AV_PACKET_SIZE;
@@ -29,14 +28,14 @@ void BufferedReaderManager::init(uint32_t blockSize, uint32_t allocSize, uint32_
 
 BufferedReaderManager::~BufferedReaderManager()
 {
-    for (size_t i = 0; i < m_fileReaders.size(); i++)
+    for (const auto& m_fileReader : m_fileReaders)
     {
-        delete m_fileReaders[i];  // need to define destruction order first. This object MUST be deleted after
-                                  // MCVodStreamer
+        delete m_fileReader;  // need to define destruction order first. This object MUST be deleted after
+                              // MCVodStreamer
     }
 }
 
-AbstractReader* BufferedReaderManager::getReader(const char* streamName)
+AbstractReader* BufferedReaderManager::getReader(const char* streamName) const
 {
     uint32_t minReaderCnt = UINT_MAX;
     uint32_t minReaderIndex = 0;

@@ -1,5 +1,5 @@
-#ifndef __TEXT_SUBTITLES_RENDER_WIN_H
-#define __TEXT_SUBTITLES_RENDER_WIN_H
+#ifndef TEXT_SUBTITLES_RENDER_WIN_H_
+#define TEXT_SUBTITLES_RENDER_WIN_H_
 
 #include "../textSubtitlesRender.h"
 #include "windows.h"
@@ -8,7 +8,7 @@ namespace text_subtitles
 {
 class GdiPlusPriv;
 
-class TextSubtitlesRenderWin32 : public TextSubtitlesRender
+class TextSubtitlesRenderWin32 final : public TextSubtitlesRender
 {
    public:
     TextSubtitlesRenderWin32();

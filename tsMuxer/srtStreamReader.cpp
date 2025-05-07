@@ -1,11 +1,10 @@
-
 #include "srtStreamReader.h"
 
 #include <string>
 
 #include "convertUTF.h"
+#include "fs/systemlog.h"
 #include "matroskaParser.h"
-#include "memory.h"
 #include "vodCoreException.h"
 #include "vod_common.h"
 
@@ -32,24 +31,24 @@ SRTStreamReader::~SRTStreamReader()
     delete m_srtRender;
 }
 
-void SRTStreamReader::setAnimation(const text_subtitles::TextAnimation& animation) { m_animation = animation; }
+void SRTStreamReader::setAnimation(const TextAnimation& animation) { m_animation = animation; }
 
-void SRTStreamReader::setBuffer(uint8_t* data, int dataLen, bool lastBlock)
+void SRTStreamReader::setBuffer(uint8_t* data, const uint32_t dataLen, const bool lastBlock)
 {
     m_lastBlock = lastBlock;
     uint8_t* dataBegin = data + MAX_AV_PACKET_SIZE - m_tmpBuffer.size();
-    if (m_tmpBuffer.size() > 0)
-        memmove(dataBegin, &m_tmpBuffer[0], m_tmpBuffer.size());
-    int parsedLen = parseText(dataBegin, dataLen + (int)m_tmpBuffer.size());
-    int rest = dataLen + (int)m_tmpBuffer.size() - parsedLen;
+    if (!m_tmpBuffer.empty())
+        memmove(dataBegin, m_tmpBuffer.data(), m_tmpBuffer.size());
+    const int parsedLen = parseText(dataBegin, dataLen + m_tmpBuffer.size());
+    const size_t rest = dataLen + m_tmpBuffer.size() - parsedLen;
     if (rest > MAX_AV_PACKET_SIZE)
-        THROW(ERR_COMMON, "Invalid SRT file or too large text message (>" << MAX_AV_PACKET_SIZE << " bytes)");
+        THROW(ERR_COMMON, "Invalid SRT file or too large text message (>" << MAX_AV_PACKET_SIZE << " bytes)")
     m_tmpBuffer.resize(rest);
     if (rest > 0)
-        memmove(&m_tmpBuffer[0], dataBegin + dataLen + m_tmpBuffer.size() - rest, rest);
+        memmove(m_tmpBuffer.data(), dataBegin + dataLen + m_tmpBuffer.size() - rest, rest);
 }
 
-bool SRTStreamReader::detectSrcFormat(uint8_t* dataStart, int len, int& prefixLen)
+bool SRTStreamReader::detectSrcFormat(const uint8_t* dataStart, const size_t len, int& prefixLen)
 {
     prefixLen = 0;
     if (len < 4)
@@ -109,7 +108,7 @@ bool SRTStreamReader::detectSrcFormat(uint8_t* dataStart, int len, int& prefixLe
     return true;
 }
 
-int SRTStreamReader::parseText(uint8_t* dataStart, int len)
+int SRTStreamReader::parseText(uint8_t* dataStart, const size_t len)
 {
     int prefixLen = 0;
     if (m_srcFormat == UtfConverter::SourceFormat::sfUnknown)
@@ -118,20 +117,21 @@ int SRTStreamReader::parseText(uint8_t* dataStart, int len)
             return false;
     }
     uint8_t* cur = dataStart + prefixLen;
-    int roundLen = len & (~(m_charSize - 1));
-    uint8_t* end = cur + roundLen;
-    uint8_t* lastProcessedLine = cur;
+    const size_t roundLen = len & (~(m_charSize - 1));
+    const uint8_t* end = cur + roundLen;
+    const uint8_t* lastProcessedLine = cur;
     vector<string> rez;
     for (; cur < end; cur += m_charSize)
     {
         // if (cur[m_splitterOfs] == '\n')
-        if ((m_charSize == 1 && *cur == '\n') || (m_charSize == 2 && *((uint16_t*)cur) == m_short_N) ||
-            (m_charSize == 4 && *((uint32_t*)cur) == m_long_N))
+        if ((m_charSize == 1 && *cur == '\n') || (m_charSize == 2 && *reinterpret_cast<uint16_t*>(cur) == m_short_N) ||
+            (m_charSize == 4 && *reinterpret_cast<uint32_t*>(cur) == m_long_N))
         {
             int32_t x = 0;
             if (cur >= m_charSize + lastProcessedLine)
-                if ((m_charSize == 1 && cur[-1] == '\r') || (m_charSize == 2 && ((uint16_t*)cur)[-1] == m_short_R) ||
-                    (m_charSize == 4 && ((uint32_t*)cur)[-1] == m_long_R))
+                if ((m_charSize == 1 && cur[-1] == '\r') ||
+                    (m_charSize == 2 && reinterpret_cast<uint16_t*>(cur)[-1] == m_short_R) ||
+                    (m_charSize == 4 && reinterpret_cast<uint32_t*>(cur)[-1] == m_long_R))
                     x = m_charSize;
 
             m_sourceText.emplace(UtfConverter::toUtf8(lastProcessedLine, cur - lastProcessedLine - x, m_srcFormat));
@@ -139,25 +139,22 @@ int SRTStreamReader::parseText(uint8_t* dataStart, int len)
             if (strOnlySpace(tmp))
                 tmp.clear();
 
-            m_origSize.push((uint32_t)(cur + m_charSize - lastProcessedLine + prefixLen));
+            m_origSize.push(static_cast<int32_t>(cur + m_charSize - lastProcessedLine + prefixLen));
             prefixLen = 0;
             lastProcessedLine = cur + m_charSize;
         }
     }
-    return (int)(lastProcessedLine - dataStart);
+    return static_cast<int>(lastProcessedLine - dataStart);
 }
 
-bool SRTStreamReader::strOnlySpace(std::string& str)
+bool SRTStreamReader::strOnlySpace(const std::string& str)
 {
-    for (std::string::iterator itr = str.begin(); itr != str.end(); ++itr)
-        if (*itr != ' ')
-            return false;
-    return true;
+    return std::all_of(str.begin(), str.end(), [](const char c) { return c == ' '; });
 }
 
 int SRTStreamReader::readPacket(AVPacket& avPacket)
 {
-    int rez = m_dstSubCodec->readPacket(avPacket);
+    const int rez = m_dstSubCodec->readPacket(avPacket);
     if (rez == NEED_MORE_DATA)
     {
         uint32_t renderedLen;
@@ -165,34 +162,33 @@ int SRTStreamReader::readPacket(AVPacket& avPacket)
         if (renderedBuffer)
         {
             m_dstSubCodec->setBuffer(renderedBuffer - MAX_AV_PACKET_SIZE, renderedLen,
-                                     m_lastBlock && m_sourceText.size() == 0);
+                                     m_lastBlock && m_sourceText.empty());
             return m_dstSubCodec->readPacket(avPacket);
         }
-        else
-            return NEED_MORE_DATA;
+        return NEED_MORE_DATA;
     }
     return rez;
 }
 
 uint8_t* SRTStreamReader::renderNextMessage(uint32_t& renderedLen)
 {
-    uint8_t* rez = 0;
-    if (m_sourceText.size() == 0)
-        return 0;
+    uint8_t* rez = nullptr;
+    if (m_sourceText.empty())
+        return nullptr;
     if (m_state == ParseState::PARSE_FIRST_LINE)
     {
-        while (m_sourceText.size() > 0 && m_sourceText.front().size() == 0)
+        while (!m_sourceText.empty() && m_sourceText.front().empty())
         {
             m_sourceText.pop();  // delete empty lines before message
             m_processedSize += m_origSize.front();
             m_origSize.pop();
         }
-        if (m_sourceText.size() == 0)
-            return 0;
+        if (m_sourceText.empty())
+            return nullptr;
         m_state = ParseState::PARSE_TIME;
         bool isNUmber = true;
         {
-            for (auto& c : m_sourceText.front())
+            for (const auto& c : m_sourceText.front())
                 if (!(c >= '0' && c <= '9') && c != ' ')
                 {
                     isNUmber = false;
@@ -204,25 +200,25 @@ uint8_t* SRTStreamReader::renderNextMessage(uint32_t& renderedLen)
             m_sourceText.pop();
             m_processedSize += m_origSize.front();
             m_origSize.pop();
-            if (m_sourceText.size() == 0)
-                return 0;
+            if (m_sourceText.empty())
+                return nullptr;
         }
     }
     if (m_state == ParseState::PARSE_TIME)
     {
         if (!parseTime(m_sourceText.front()))
-            THROW(ERR_COMMON, "Invalid SRT format. \"" << m_sourceText.front().c_str() << "\" is invalid timing info");
+            THROW(ERR_COMMON, "Invalid SRT format. \"" << m_sourceText.front().c_str() << "\" is invalid timing info")
         m_state = ParseState::PARSE_TEXT;
         m_sourceText.pop();
         m_processedSize += m_origSize.front();
         m_origSize.pop();
-        if (m_sourceText.size() == 0)
-            return 0;
+        if (m_sourceText.empty())
+            return nullptr;
     }
 
-    while (m_sourceText.size() > 0 && m_sourceText.front().size() > 0)
+    while (!m_sourceText.empty() && !m_sourceText.front().empty())
     {
-        if (m_renderedText.size() > 0)
+        if (!m_renderedText.empty())
             m_renderedText += '\n';
         m_renderedText += m_sourceText.front();
         m_sourceText.pop();
@@ -230,9 +226,9 @@ uint8_t* SRTStreamReader::renderNextMessage(uint32_t& renderedLen)
         m_origSize.pop();
     }
 
-    if (m_sourceText.size() == 0)
+    if (m_sourceText.empty())
     {
-        if (m_lastBlock && m_renderedText.size() > 0)
+        if (m_lastBlock && !m_renderedText.empty())
         {
             m_state = ParseState::PARSE_FIRST_LINE;
             m_renderedText.clear();
@@ -240,15 +236,12 @@ uint8_t* SRTStreamReader::renderNextMessage(uint32_t& renderedLen)
         }
         return rez;
     }
-    else
-    {
-        m_sourceText.pop();  // delete empty line (messages separator)
-        m_processedSize += m_origSize.front();
-        m_origSize.pop();
-        rez = m_srtRender->doConvert(m_renderedText, m_animation, m_inTime, m_outTime, renderedLen);
-        m_state = ParseState::PARSE_FIRST_LINE;
-        m_renderedText.clear();
-    }
+    m_sourceText.pop();  // delete empty line (messages separator)
+    m_processedSize += m_origSize.front();
+    m_origSize.pop();
+    rez = m_srtRender->doConvert(m_renderedText, m_animation, m_inTime, m_outTime, renderedLen);
+    m_state = ParseState::PARSE_FIRST_LINE;
+    m_renderedText.clear();
     return rez;
 }
 
@@ -260,12 +253,17 @@ bool SRTStreamReader::parseTime(const string& text)
         {
             string first = trimStr(text.substr(0, i));
             string second = trimStr(text.substr(i + 3, text.length() - i - 3));
-            for (size_t j = 0; j < first.length(); j++)
-                if (first[j] == ',')
-                    first[j] = '.';
-            for (size_t j = 0; j < second.length(); j++)
-                if (second[j] == ',')
-                    second[j] = '.';
+            for (char& c : first)
+            {
+                if (c == ',')
+                    c = '.';
+            }
+            for (char& c : second)
+            {
+                if (c == ',')
+                    c = '.';
+            }
+
             m_inTime = timeToFloat(first);
             m_outTime = timeToFloat(second);
             return true;
@@ -274,8 +272,9 @@ bool SRTStreamReader::parseTime(const string& text)
     return false;
 }
 
-CheckStreamRez SRTStreamReader::checkStream(uint8_t* buffer, int len, ContainerType containerType,
-                                            int containerDataType, int containerStreamIndex)
+// ReSharper disable once CppMemberFunctionMayBeStatic
+CheckStreamRez SRTStreamReader::checkStream(uint8_t* buffer, const int len, const ContainerType containerType,
+                                            const int containerDataType, int containerStreamIndex)
 {
     CheckStreamRez rez;
     if (((containerType == ContainerType::ctMKV || containerType == ContainerType::ctMOV) &&

@@ -6,12 +6,11 @@
 
 #include "avCodecs.h"
 #include "bitStream.h"
-#include "vodCoreException.h"
 #include "vod_common.h"
 
 bool AC3StreamReader::isPriorityData(AVPacket* packet)
 {
-    return (packet->size >= 2 && packet->data[0] == 0x0B && packet->data[1] == 0x77 && m_bsid <= 10);
+    return (packet->size >= 2 && packet->data[0] == 0x0B && packet->data[1] == 0x77 && m_strmtyp != 1);
 }
 
 bool AC3StreamReader::isSecondary() { return m_secondary; };
@@ -21,22 +20,22 @@ void AC3StreamReader::writePESExtension(PESPacket* pesPacket, const AVPacket& av
     if (m_useNewStyleAudioPES)
     {
         pesPacket->flagsLo |= 1;  // enable PES extension for AC3 stream
-        uint8_t* data = (uint8_t*)(pesPacket) + pesPacket->getHeaderLength();
+        uint8_t* data = reinterpret_cast<uint8_t*>(pesPacket) + pesPacket->getHeaderLength();
         *data++ = 0x01;
         *data++ = 0x81;
         if (!m_true_hd_mode || m_downconvertToAC3)
         {
             if (m_bsid > 10)
-                *data++ = 0x72;  // E-AC3 subtype
+                *data = 0x72;  // E-AC3 subtype
             else
-                *data++ = 0x71;  // AC3 subtype
+                *data = 0x71;  // AC3 subtype
         }
         else
         {
             if (avPacket.flags & AVPacket::IS_CORE_PACKET)
-                *data++ = 0x76;  // AC3 at TRUE-HD
+                *data = 0x76;  // AC3 at TRUE-HD
             else
-                *data++ = 0x72;  // TRUE-HD data
+                *data = 0x72;  // TRUE-HD data
         }
         pesPacket->m_pesHeaderLen += 3;
     }
@@ -46,13 +45,13 @@ int AC3StreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdm
 {
     AC3Codec::setTestMode(true);
     uint8_t* frame = findFrame(m_buffer, m_bufEnd);
-    if (frame == 0)
+    if (frame == nullptr)
         return 0;
     for (int i = 0; i < 2 && frame < m_bufEnd;)
     {
         int skipBytes = 0;
         int skipBeforeBytes = 0;
-        int len = decodeFrame(frame, m_bufEnd, skipBytes, skipBeforeBytes);
+        const int len = decodeFrame(frame, m_bufEnd, skipBytes, skipBeforeBytes);
         if (len < 1)
         {
             // m_state = stateDecodeAC3;
@@ -61,7 +60,7 @@ int AC3StreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdm
             break;
         }
         frame += len + skipBytes;
-        if (getFrameDurationNano() > 0)
+        if (getFrameDuration() > 0)
             i++;
     }
     m_state = AC3State::stateDecodeAC3;
@@ -71,14 +70,16 @@ int AC3StreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdm
     if (isAC3())
     {
         // ATSC A/52 Annex A Table A3.1 AC-3 Registration Descriptor
-        *dstBuff++ = (uint8_t)TSDescriptorTag::REGISTRATION;  // descriptor tag
-        *dstBuff++ = 4;                                       // decriptor length
-        memcpy(dstBuff, "AC-3", 4);                           // format_identifier
-        dstBuff += 4;
+        *dstBuff++ = static_cast<uint8_t>(TSDescriptorTag::REGISTRATION);  // descriptor tag
+        *dstBuff++ = 4;                                                    // decriptor length
+        *dstBuff++ = 'A';
+        *dstBuff++ = 'C';
+        *dstBuff++ = '-';
+        *dstBuff++ = '3';
 
         // ATSC A/52 Annex A Table A4.1 AC-3 Audio Descriptor Syntax
-        *dstBuff++ = (uint8_t)TSDescriptorTag::AC3;  // AC-3_audio_stream_descriptor
-        *dstBuff++ = 4;                              // descriptor len
+        *dstBuff++ = static_cast<uint8_t>(TSDescriptorTag::AC3);  // AC-3_audio_stream_descriptor
+        *dstBuff++ = 4;                                           // descriptor len
 
         bitWriter.setBuffer(dstBuff, dstBuff + 4);
 
@@ -100,14 +101,16 @@ int AC3StreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdm
 
     // Not AC3 => EAC3
     // ATSC A/52 Annex G 2.EAC3 Registration Descriptor
-    *dstBuff++ = (int)TSDescriptorTag::REGISTRATION;  // descriptor tag
-    *dstBuff++ = 4;                                   // descriptor length
-    memcpy(dstBuff, "EAC3", 4);                       // format_identifier
-    dstBuff += 4;
+    *dstBuff++ = static_cast<int>(TSDescriptorTag::REGISTRATION);  // descriptor tag
+    *dstBuff++ = 4;                                                // descriptor length
+    *dstBuff++ = 'E';
+    *dstBuff++ = 'A';
+    *dstBuff++ = 'C';
+    *dstBuff++ = '3';
 
     // ATSC A/52 Annex G Table G.1
-    *dstBuff++ = (int)TSDescriptorTag::EAC3;  // EAC3_audio_stream_descriptor
-    *dstBuff++ = 4;                           // descriptor len
+    *dstBuff++ = static_cast<int>(TSDescriptorTag::EAC3);  // EAC3_audio_stream_descriptor
+    *dstBuff++ = 4;                                        // descriptor len
 
     bitWriter.setBuffer(dstBuff, dstBuff + 4);
 
@@ -134,18 +137,17 @@ int AC3StreamReader::readPacket(AVPacket& avPacket)
 {
     if (m_true_hd_mode && !m_downconvertToAC3)
         return readPacketTHD(avPacket);
-    else
-        return SimplePacketizerReader::readPacket(avPacket);
+    return SimplePacketizerReader::readPacket(avPacket);
 }
 
 int AC3StreamReader::flushPacket(AVPacket& avPacket)
 {
-    int rez = SimplePacketizerReader::flushPacket(avPacket);
+    const int rez = SimplePacketizerReader::flushPacket(avPacket);
     if (rez > 0 && m_true_hd_mode && !m_downconvertToAC3)
     {
         if (!(avPacket.flags & AVPacket::PRIORITY_DATA))
             avPacket.pts = avPacket.dts =
-                m_totalTHDSamples * 1000000000ll / mlp.m_samplerate;  // replace time to a next HD packet
+                m_totalTHDSamples * INTERNAL_PTS_FREQ / mlp.m_samplerate;  // replace time to a next HD packet
     }
     return rez;
 }
@@ -161,17 +163,17 @@ int AC3StreamReader::readPacketTHD(AVPacket& avPacket)
         m_thdDemuxWaitAc3 = false;
         avPacket.dts = avPacket.pts = m_nextAc3Time;
         avPacket.flags |= AVPacket::IS_CORE_PACKET;
-        m_nextAc3Time += m_frameDurationNano;
+        m_nextAc3Time += m_frameDuration;
         return 0;
     }
 
-    while (1)
+    while (true)
     {
-        int rez = SimplePacketizerReader::readPacket(avPacket);
+        const int rez = SimplePacketizerReader::readPacket(avPacket);
         if (rez != 0)
             return rez;
 
-        bool isAc3Packet = (m_state == AC3State::stateDecodeTrueHDFirst);
+        const bool isAc3Packet = (m_state == AC3State::stateDecodeTrueHDFirst);
 
         if (isAc3Packet)
         {
@@ -180,29 +182,27 @@ int AC3StreamReader::readPacketTHD(AVPacket& avPacket)
                 m_thdDemuxWaitAc3 = false;
                 avPacket.dts = avPacket.pts = m_nextAc3Time;
                 avPacket.flags |= AVPacket::IS_CORE_PACKET;
-                m_nextAc3Time += m_frameDurationNano;
+                m_nextAc3Time += m_frameDuration;
                 return 0;
             }
-            else
+            if (!m_delayedAc3Buffer.isEmpty())
             {
-                if (!m_delayedAc3Buffer.isEmpty())
-                {
-                    LTRACE(LT_INFO, 2,
-                           getCodecInfo().displayName
-                               << " stream (track " << m_streamIndex << "): overlapped frame detected at position "
-                               << floatToTime((avPacket.pts - PTS_CONST_OFFSET) / 1e9, ',') << ". Remove frame.");
-                }
-
-                m_delayedAc3Packet = avPacket;
-                m_delayedAc3Buffer.clear();
-                m_delayedAc3Buffer.append(avPacket.data, avPacket.size);
-                m_delayedAc3Packet.data = m_delayedAc3Buffer.data();
+                LTRACE(LT_INFO, 2,
+                       getCodecInfo().displayName
+                           << " stream (track " << m_streamIndex << "): overlapped frame detected at position "
+                           << floatToTime((double)(avPacket.pts - PTS_CONST_OFFSET) / INTERNAL_PTS_FREQ, ',')
+                           << ". Remove frame.");
             }
+
+            m_delayedAc3Packet = avPacket;
+            m_delayedAc3Buffer.clear();
+            m_delayedAc3Buffer.append(avPacket.data, avPacket.size);
+            m_delayedAc3Packet.data = m_delayedAc3Buffer.data();
         }
         else
         {
             // thg packet
-            avPacket.dts = avPacket.pts = m_totalTHDSamples * 1000000000ll / mlp.m_samplerate;
+            avPacket.dts = avPacket.pts = m_totalTHDSamples * INTERNAL_PTS_FREQ / mlp.m_samplerate;
 
             m_totalTHDSamples += mlp.m_samples;
             m_demuxedTHDSamples += mlp.m_samples;

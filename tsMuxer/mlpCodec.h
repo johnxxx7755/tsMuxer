@@ -1,9 +1,9 @@
+#ifndef MLP_CODEC_H_
+#define MLP_CODEC_H_
+
 #include <types/types.h>
 
-#ifndef __MLP_CODEC_H
-#define __MLP_CODEC_H
-
-const static int MLP_HEADER_LEN = 7;
+static constexpr int MLP_HEADER_LEN = 7;
 
 enum class MlpSubType
 {
@@ -19,19 +19,18 @@ class MLPCodec
         : m_channels(0), m_samples(0), m_samplerate(0), m_bitrate(0), m_substreams(0), m_subType(MlpSubType::stUnknown)
     {
     }
-    uint8_t* findFrame(uint8_t* buffer, uint8_t* end);
-    int getFrameSize(uint8_t* buffer);
+    static uint8_t* findFrame(uint8_t* buffer, const uint8_t* end);
+    static int getFrameSize(const uint8_t* buffer);
     bool decodeFrame(uint8_t* buffer, uint8_t* end);
-    bool isMinorSync(uint8_t* buffer, uint8_t* end);
-    uint64_t getFrameDurationNano();
-    int mlp_samplerate(int audio_sampling_frequency);
+    bool isMinorSync(const uint8_t* buffer, uint8_t* end) const;
+    [[nodiscard]] uint64_t getFrameDuration() const;
+    static int mlp_samplerate(int ratebits);
 
-   public:
-    int m_channels;
+    uint8_t m_channels;
     int m_samples;
     int m_samplerate;  // Sample rate of first substream
     int m_bitrate;     // Peak bitrate for VBR, actual bitrate for CBR
-    int m_substreams;
+    uint8_t m_substreams;
     MlpSubType m_subType;
 };
 

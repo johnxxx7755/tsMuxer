@@ -1,17 +1,16 @@
-#ifndef __ABSTRACT_DEMUXER_H
-#define __ABSTRACT_DEMUXER_H
+#ifndef ABSTRACT_DEMUXER_H_
+#define ABSTRACT_DEMUXER_H_
 
 #include <assert.h>
-#include <memory.h>
-#include <types/types.h>
-
+#include <cstring>
 #include <map>
 #include <set>
 #include <string>
 
+#include <types/types.h>
+
 #include "avPacket.h"
 #include "vod_common.h"
-//#include <system/dynamiclink.h>
 
 class SubTrackFilter;
 
@@ -25,25 +24,25 @@ class MemoryBlock
     }
 
     MemoryBlock() : m_size(0) {}
-    void reserve(int num) { m_data.resize(num); }
+    void reserve(const unsigned num) { m_data.resize(num); }
 
-    void resize(int num)
+    void resize(const unsigned num)
     {
         m_size = num;
-        if ((int)m_data.size() < m_size)
+        if (m_data.size() < m_size)
             m_data.resize(m_size);
     }
 
-    void grow(int64_t num)
+    void grow(const size_t num)
     {
         m_size += num;
         if (m_data.size() < m_size)
         {
-            m_data.resize(FFMIN(m_size * 2, m_size + 1024 * 1024));
+            m_data.resize(FFMIN(m_size * 2, m_size + 1024LL * 1024));
         }
     }
 
-    void append(const uint8_t* data, int64_t num)
+    void append(const uint8_t* data, const size_t num)
     {
         if (num > 0)
         {
@@ -52,11 +51,11 @@ class MemoryBlock
         }
     }
 
-    size_t size() const { return m_size; }
+    [[nodiscard]] size_t size() const { return m_size; }
 
-    uint8_t* data() { return m_data.empty() ? 0 : &m_data[0]; }
+    uint8_t* data() { return m_data.empty() ? nullptr : m_data.data(); }
 
-    bool isEmpty() const { return m_size == 0; }
+    [[nodiscard]] bool isEmpty() const { return m_size == 0; }
 
     void clear() { m_size = 0; }
 
@@ -66,8 +65,8 @@ class MemoryBlock
 };
 
 typedef MemoryBlock StreamData;
-typedef std::map<uint32_t, StreamData> DemuxedData;
-typedef std::set<uint32_t> PIDSet;
+typedef std::map<int32_t, StreamData> DemuxedData;
+typedef std::set<int32_t> PIDSet;
 // typedef std::map<uint32_t, std::vector<uint8_t> > DemuxedData;
 
 // Used to automatically switch to reading the next file while the current one ends.
@@ -76,7 +75,7 @@ class FileNameIterator
 {
    public:
     virtual std::string getNextName() = 0;
-    virtual ~FileNameIterator() {}
+    virtual ~FileNameIterator() = default;
 };
 
 struct TrackInfo
@@ -85,7 +84,10 @@ struct TrackInfo
     std::string m_lang;  // tracl language code
     int64_t m_delay;     // auto delay for audio
     TrackInfo() : m_trackType(0), m_delay(0) {}
-    TrackInfo(int trackType, const char* lang, int64_t delay) : m_trackType(trackType), m_lang(lang), m_delay(delay) {}
+    TrackInfo(const int trackType, const char* lang, const int64_t delay)
+        : m_trackType(trackType), m_lang(lang), m_delay(delay)
+    {
+    }
 };
 
 class AbstractDemuxer
@@ -102,10 +104,10 @@ class AbstractDemuxer
     virtual void openFile(const std::string& streamName) = 0;
 
     virtual void readClose() = 0;
-    virtual uint64_t getDemuxedSize() = 0;
+    virtual int64_t getDemuxedSize() = 0;
 
     virtual uint64_t getDuration() { return 0; }
-    virtual void setTimeOffset(uint64_t offset) { m_timeOffset = offset; }
+    virtual void setTimeOffset(const int64_t offset) { m_timeOffset = offset; }
     virtual int simpleDemuxBlock(DemuxedData& demuxedData, const PIDSet& acceptedPIDs, int64_t& discardSize)
     {
         discardSize = 0;
@@ -113,27 +115,26 @@ class AbstractDemuxer
     }
     virtual void terminate() {}
     virtual int getLastReadRez() = 0;
-    virtual void getTrackList(std::map<uint32_t, TrackInfo>& trackList) {}
+    virtual void getTrackList(std::map<int32_t, TrackInfo>& trackList) {}
     virtual void setFileIterator(FileNameIterator*) {}
 
-    virtual void setFileBlockSize(uint32_t nFileBlockSize) { m_fileBlockSize = nFileBlockSize; }
     virtual uint32_t getFileBlockSize() { return m_fileBlockSize; }
 
-    virtual int64_t getTrackDelay(uint32_t pid) { return 0; }
-    virtual std::vector<AVChapter> getChapters() { return std::vector<AVChapter>(); }
+    virtual int64_t getTrackDelay(int32_t pid) { return 0; }
+    virtual std::vector<AVChapter> getChapters() { return {}; }
     virtual double getTrackFps(uint32_t trackId) { return 0.0; }
 
-    SubTrackFilter* getPidFilter(int pid)
+    SubTrackFilter* getPidFilter(const int pid)
     {
-        PIDFilters::const_iterator itr = m_pidFilters.find(pid);
-        return itr != m_pidFilters.end() ? itr->second : 0;
+        const PIDFilters::const_iterator itr = m_pidFilters.find(pid);
+        return itr != m_pidFilters.end() ? itr->second : nullptr;
     }
-    void setPidFilter(int pid, SubTrackFilter* pidFilter) { m_pidFilters[pid] = pidFilter; }
-    virtual bool isPidFilterSupported() const { return false; }
-    virtual int64_t getFileDurationNano() const { return 0; }
+    void setPidFilter(const int pid, SubTrackFilter* pidFilter) { m_pidFilters[pid] = pidFilter; }
+    [[nodiscard]] virtual bool isPidFilterSupported() const { return false; }
+    [[nodiscard]] virtual int64_t getFileDurationNano() const { return 0; }
 
    protected:
-    uint64_t m_timeOffset;
+    int64_t m_timeOffset;
     uint32_t m_fileBlockSize;
     PIDFilters m_pidFilters;  // todo: refactor in case if several pidFilters required (>1 3D tracks)
 };

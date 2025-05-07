@@ -1,13 +1,6 @@
 #include "aacStreamReader.h"
-
-#include <fs/systemlog.h>
-
-#include <iostream>
-
-#include "avCodecs.h"
 #include "nalUnits.h"
 #include "vodCoreException.h"
-#include "vod_common.h"
 
 int AACStreamReader::getHeaderLen() { return AAC_HEADER_LEN; }
 
@@ -15,7 +8,7 @@ const std::string AACStreamReader::getStreamInfo()
 {
     std::ostringstream str;
     str << "Sample Rate: " << m_sample_rate / 1000 << "KHz  ";
-    str << "Channels: " << (int)m_channels;
+    str << "Channels: " << static_cast<int>(m_channels);
     return str.str();
 }
 
@@ -34,8 +27,8 @@ int AACStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdm
     // TODO: fix AAC descriptor
 
     // H.222 Table 2-94 - MPEG-2 AAC_audio_descriptor
-    *dstBuff++ = (uint8_t)TSDescriptorTag::AAC2;  // MPEG-2 AAC descriptor tag;
-    *dstBuff++ = 3;                               // descriptor length
+    *dstBuff++ = static_cast<uint8_t>(TSDescriptorTag::AAC2);  // MPEG-2 AAC descriptor tag;
+    *dstBuff++ = 3;                                            // descriptor length
     *dstBuff++ = m_profile;
     *dstBuff++ = m_channels_index;
     *dstBuff++ = 0;  // MPEG-2_AAC_additional_information

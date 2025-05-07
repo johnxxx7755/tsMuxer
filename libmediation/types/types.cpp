@@ -1,7 +1,5 @@
 #include "types.h"
 
-#include <memory.h>
-
 #include <cstring>
 #include <iomanip>
 #include <ostream>
@@ -31,7 +29,7 @@ const std::regex& invalidChars()
 #else
         // <>:"/|?\*, ASCII 0 to 31 and all reserved names such as CON or LPT1
         // see here: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
-        "[:<>\"/|?\\*\\x00-\\x1F]|^CON$|^PRN$|^AUX$|^NUL$|^COM\\d$|^LPT\\d$"
+        R"([:<>"/|?\*\x00-\x1F]|^CON$|^PRN$|^AUX$|^NUL$|^COM\d$|^LPT\d$)"
 #endif
         ,
         std::regex_constants::ECMAScript | std::regex_constants::optimize);
@@ -46,7 +44,8 @@ uint64_t my_ntohll(const uint64_t& original)
 #ifdef SPARC_V9  // big endian
     return original;
 #else  // little endian
-    return (((uint64_t)my_ntohl((uint32_t)original)) << 32) | ((uint64_t)my_ntohl((uint32_t)(original >> 32)));
+    return (static_cast<uint64_t>(my_ntohl(static_cast<uint32_t>(original))) << 32) |
+           static_cast<uint64_t>(my_ntohl(static_cast<uint32_t>(original >> 32)));
 #endif
 }
 
@@ -55,7 +54,8 @@ uint64_t my_htonll(const uint64_t& original)
 #ifdef SPARC_V9  // big endian
     return original;
 #else  // little endian
-    return (((uint64_t)my_ntohl((uint32_t)original)) << 32) | ((uint64_t)my_ntohl((uint32_t)(original >> 32)));
+    return (static_cast<uint64_t>(my_ntohl(static_cast<uint32_t>(original))) << 32) |
+           static_cast<uint64_t>(my_ntohl(static_cast<uint32_t>(original >> 32)));
 #endif
 }
 
@@ -78,25 +78,28 @@ uint64_t strToInt64u(const char* const str)
 #endif
 }
 
-int32_t strToInt32(const char* const str) { return strtol(str, 0, 10); }
+int32_t strToInt32(const char* const str) { return strtol(str, nullptr, 10); }
 
 int32_t strToInt32(const std::string& str) { return strToInt32(str.c_str()); }
 
-int32_t strToInt32(const char* const str, int radix) { return strtol(str, 0, radix); }
+int32_t strToInt32(const char* const str, const int radix) { return strtol(str, nullptr, radix); }
 
-uint32_t strToInt32u(const char* const str, int radix) { return static_cast<uint32_t>(strtoul(str, 0, radix)); }
+uint32_t strToInt32u(const char* const str, const int radix)
+{
+    return static_cast<uint32_t>(strtoul(str, nullptr, radix));
+}
 
-int16_t strToInt16(const char* const str) { return (int16_t)strtol(str, 0, 10); }
+int16_t strToInt16(const char* const str) { return static_cast<int16_t>(strtol(str, nullptr, 10)); }
 
-uint16_t strToInt16u(const char* const str) { return (uint16_t)strtol(str, 0, 10); }
+uint16_t strToInt16u(const char* const str) { return static_cast<uint16_t>(strtol(str, nullptr, 10)); }
 
-int8_t strToInt8(const char* const str) { return (int8_t)strtol(str, 0, 10); }
+int8_t strToInt8(const char* const str) { return static_cast<int8_t>(strtol(str, nullptr, 10)); }
 
-uint8_t strToInt8u(const char* const str) { return (uint8_t)strtol(str, 0, 10); }
+uint8_t strToInt8u(const char* const str) { return static_cast<uint8_t>(strtol(str, nullptr, 10)); }
 
-double strToDouble(const char* const str) { return strtod(str, 0); }
+double strToDouble(const char* const str) { return strtod(str, nullptr); }
 
-float strToFloat(const char* const str) { return strtof(str, 0); }
+float strToFloat(const char* const str) { return strtof(str, nullptr); }
 
 bool strToBool(const char* const str)
 {
@@ -148,7 +151,7 @@ string int32uToHex(const uint32_t& x)
     return str.str();
 }
 
-string doubleToStr(const double& x, int precision)
+string doubleToStr(const double& x, const int precision)
 {
     std::ostringstream str;
     if (precision > 0)
@@ -197,6 +200,11 @@ uint32_t roundUp(const uint32_t& value, const uint32_t& roundVal)
     return roundVal ? ((value + roundVal - 1) / roundVal) * roundVal : 0;
 }
 
+int32_t roundUp(const int32_t& value, const int32_t& roundVal)
+{
+    return roundVal ? ((value + roundVal - 1) / roundVal) * roundVal : 0;
+}
+
 uint64_t roundDown64(const uint64_t& value, const uint64_t& roundVal)
 {
     return roundVal ? (value / roundVal) * roundVal : 0;
@@ -207,25 +215,25 @@ uint64_t roundUp64(const uint64_t& value, const uint64_t& roundVal)
     return roundVal ? ((value + roundVal - 1) / roundVal) * roundVal : 0;
 }
 
-string strPadLeft(const string& str, size_t newSize, char filler)
+string strPadLeft(const string& str, const size_t newSize, const char filler)
 {
-    size_t cnt = newSize - str.size();
-    string prefix = "";
+    const int cnt = static_cast<int>(newSize - str.size());
+    string prefix;
     for (int i = 0; i < cnt; i++) prefix += filler;
     return prefix + str;
 }
 
-string strPadRight(const string& str, size_t newSize, char filler)
+string strPadRight(const string& str, const size_t newSize, const char filler)
 {
-    size_t cnt = newSize - str.size();
-    string postfix = "";
+    const int cnt = static_cast<int>(newSize - str.size());
+    string postfix;
     for (int i = 0; i < cnt; i++) postfix += filler;
     return str + postfix;
 }
 
 bool strEndWith(const string& str, const string& substr)
 {
-    if (str.size() == 0)
+    if (str.empty())
         return false;
     size_t idx = str.size();
     for (size_t i = substr.size(); i-- > 0;)
@@ -244,7 +252,7 @@ bool strStartWith(const string& str, const string& substr)
     return true;
 }
 
-vector<string> splitStr(const char* str, char splitter)
+vector<string> splitStr(const char* str, const char splitter)
 {
     vector<string> rez;
     const char* prevPos = str;
@@ -253,12 +261,12 @@ vector<string> splitStr(const char* str, char splitter)
     {
         if (*buf == splitter)
         {
-            rez.push_back(string(prevPos, buf - prevPos));
+            rez.emplace_back(prevPos, buf - prevPos);
             prevPos = buf + 1;
         }
     }
     if (buf > prevPos)
-        rez.push_back(string(prevPos, buf - prevPos));
+        rez.emplace_back(prevPos, buf - prevPos);
     return rez;
 }
 
@@ -266,9 +274,9 @@ vector<string> splitStr(const string& str, const string& splitter)
 {
     vector<string> res;
 
-    size_t splitterSize = splitter.size();
+    const size_t splitterSize = splitter.size();
     size_t posBegin = 0;
-    size_t posEnd = string::npos;
+    size_t posEnd;
 
     if (splitterSize > 0 && !str.empty())
     {
@@ -285,7 +293,7 @@ vector<string> splitStr(const string& str, const string& splitter)
     return res;
 }
 
-void splitStr(vector<string>& rez, const char* str, char splitter)
+void splitStr(vector<string>& rez, const char* str, const char splitter)
 {
     rez.clear();
     const char* prevPos = str;
@@ -294,12 +302,12 @@ void splitStr(vector<string>& rez, const char* str, char splitter)
     {
         if (*buf == splitter)
         {
-            rez.push_back(string(prevPos, buf - prevPos));
+            rez.emplace_back(prevPos, buf - prevPos);
             prevPos = buf + 1;
         }
     }
     if (buf > prevPos)
-        rez.push_back(string(prevPos, buf - prevPos));
+        rez.emplace_back(prevPos, buf - prevPos);
 }
 
 string extractFileExt(const string& src)
@@ -308,10 +316,9 @@ string extractFileExt(const string& src)
         if (src[i] == '.')
         {
             string rez = src.substr(i + 1);
-            if (rez.size() > 0 && rez[rez.size() - 1] == '\"')
+            if (!rez.empty() && rez[rez.size() - 1] == '\"')
                 return rez.substr(0, rez.size() - 1);
-            else
-                return rez;
+            return rez;
         }
     return "";
 }
@@ -328,19 +335,18 @@ string extractFileName(const string& src)
         else if (src[i] == '/' || src[i] == '\\')
         {
             string rez = src.substr(i + 1, endPos - i - 1);
-            if (rez.size() > 0 && rez[rez.size() - 1] == '\"')
+            if (!rez.empty() && rez[rez.size() - 1] == '\"')
                 return rez.substr(0, rez.size() - 1);
-            else
-                return rez;
+            return rez;
         }
     return "";
 }
 
-string extractFileName2(const string& src, bool withExt)
+string extractFileName2(const string& src, const bool withExt)
 {
     string fileName = src;
 
-    size_t extSep = fileName.find_last_of('.');
+    const size_t extSep = fileName.find_last_of('.');
     size_t dirSep = fileName.find_last_of('/');
 
     if (dirSep == string::npos)
@@ -380,10 +386,10 @@ string closeDirPath(const string& src, char delimiter)
 // extract the filename from a path, check for invalid characters
 bool isValidFileName(const string& src)
 {
-    string filename = extractFileName(src);
+    const string filename = extractFileName(src);
 
     // invalidChars() returns a different regex pattern for Windows or Unix
-    bool isvalid = !(std::regex_search(filename, invalidChars()));
+    const bool isvalid = !(std::regex_search(filename, invalidChars()));
     return isvalid;
 }
 
@@ -400,7 +406,7 @@ string trimStr(const string& value)
     return value.substr(chBeg - bufStart, chEnd - chBeg + 1);
 }
 
-vector<string> splitQuotedStr(const char* str, char splitter)
+vector<string> splitQuotedStr(const char* str, const char splitter)
 {
     vector<string> rez;
     const char* prevPos = str;
@@ -412,12 +418,12 @@ vector<string> splitQuotedStr(const char* str, char splitter)
             quoted = !quoted;
         if (*buf == splitter && !quoted)
         {
-            rez.push_back(string(prevPos, buf - prevPos));
+            rez.emplace_back(prevPos, buf - prevPos);
             prevPos = buf + 1;
         }
     }
     if (buf > prevPos)
-        rez.push_back(string(prevPos, buf - prevPos));
+        rez.emplace_back(prevPos, buf - prevPos);
     return rez;
 }
 
@@ -439,40 +445,39 @@ string strToLowerCase(const string& src)
     return res;
 }
 
-uint32_t my_ntohl(const uint32_t val)
+uint32_t my_ntohl(uint32_t val)
 {
-    uint8_t* tmp = (uint8_t*)&val;
+    const auto* tmp = reinterpret_cast<uint8_t*>(&val);
     return tmp[3] + (tmp[2] << 8) + (tmp[1] << 16) + (tmp[0] << 24);
 }
 
-uint16_t my_ntohs(const uint16_t val)
+uint16_t my_ntohs(uint16_t val)
 {
-    uint8_t* tmp = (uint8_t*)&val;
-    return tmp[1] + (tmp[0] << 8);
+    const auto* tmp = reinterpret_cast<uint8_t*>(&val);
+    return static_cast<uint16_t>(tmp[1] | tmp[0] << 8);
 }
 
-char* strnstr(const char* s1, const char* s2, size_t len)
+char* strnstr(char* s1, const char* s2, const size_t len)
 {
-    size_t l1 = len, l2;
-
-    l2 = strlen(s2);
+    size_t l1 = len;
+    const size_t l2 = strlen(s2);
     if (!l2)
-        return (char*)s1;
+        return s1;
     while (l1 >= l2)
     {
         l1--;
         if (!memcmp(s1, s2, l2))
-            return (char*)s1;
+            return s1;
         s1++;
     }
-    return NULL;
+    return nullptr;
 }
 
 uint32_t random32()
 {
     static std::random_device dev;
     static std::minstd_rand raand(dev());
-    return static_cast<std::uint32_t>(raand());
+    return raand();
 }
 
 #ifdef _WIN32
@@ -481,7 +486,7 @@ uint32_t random32()
 
 namespace
 {
-std::vector<wchar_t> mbtwc_wrapper(int codePage, const char* inputStr, int inputSize, int outputSize)
+std::vector<wchar_t> mbtwc_wrapper(const int codePage, const char* inputStr, const int inputSize, const int outputSize)
 {
     std::vector<wchar_t> multiByteBuf(static_cast<std::size_t>(outputSize));
     MultiByteToWideChar(codePage, 0, inputStr, inputSize, multiByteBuf.data(), outputSize);
@@ -493,28 +498,28 @@ std::vector<wchar_t> mbtwc_wrapper(int codePage, const char* inputStr, int input
 }
 }  // namespace
 
-std::vector<wchar_t> fromAcp(const char* acpStr, int sz)
+std::vector<wchar_t> fromAcp(const char* acpStr, const int sz)
 {
-    auto requiredSiz = MultiByteToWideChar(CP_ACP, 0, acpStr, sz, nullptr, 0);
+    const auto requiredSiz = MultiByteToWideChar(CP_ACP, 0, acpStr, sz, nullptr, 0);
     return mbtwc_wrapper(CP_ACP, acpStr, sz, requiredSiz);
 }
 
-std::vector<wchar_t> toWide(const std::string& utf8Str) { return toWide(utf8Str.c_str(), (int)utf8Str.size()); }
-
-std::vector<wchar_t> toWide(const char* utf8Str, int sz)
+std::vector<wchar_t> toWide(const std::string& utf8Str)
 {
-    auto requiredSiz = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8Str, sz, nullptr, 0);
+    return toWide(utf8Str.c_str(), static_cast<int>(utf8Str.size()));
+}
+
+std::vector<wchar_t> toWide(const char* utf8Str, const int sz)
+{
+    const auto requiredSiz = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, utf8Str, sz, nullptr, 0);
     if (requiredSiz != 0)
     {
-        return mbtwc_wrapper(CP_UTF8, utf8Str, sz, static_cast<std::size_t>(requiredSiz));
+        return mbtwc_wrapper(CP_UTF8, utf8Str, sz, requiredSiz);
     }
-    else
-    {
-        /* utf8Str is not a valid UTF-8 string. try converting it according to the currently active code page in order
-         * to keep compatibility with meta files saved by older versions of the GUI which put the file name through
-         * QString::toLocal8Bit, which uses the ACP on Windows. */
-        return fromAcp(utf8Str, sz);
-    }
+    /* utf8Str is not a valid UTF-8 string. try converting it according to the currently active code page in order
+     * to keep compatibility with meta files saved by older versions of the GUI which put the file name through
+     * QString::toLocal8Bit, which uses the ACP on Windows. */
+    return fromAcp(utf8Str, sz);
 }
 
 std::string toUtf8(const wchar_t* wideStr)
@@ -522,7 +527,7 @@ std::string toUtf8(const wchar_t* wideStr)
     auto needed = WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, nullptr, 0, nullptr, nullptr);
     needed--;  // includes terminating null byte, needless when returning a std::string.
     std::string s(static_cast<std::size_t>(needed), 0);
-    WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, &s[0], needed, nullptr, nullptr);
+    WideCharToMultiByte(CP_UTF8, 0, wideStr, -1, s.data(), needed, nullptr, nullptr);
     return s;
 }
 #endif

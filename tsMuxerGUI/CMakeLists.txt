@@ -30,6 +30,7 @@ set(tsmuxer_ts_files
   translations/tsmuxergui_zh.ts
   translations/tsmuxergui_de.ts
   translations/tsmuxergui_he.ts
+  translations/tsmuxergui_es.ts
 )
 
 set(lang_qrc "translations.qrc")
@@ -50,6 +51,7 @@ set(tsmuxer_gui_sources
   main.cpp
   tsmuxerwindow.cpp
   muxForm.cpp
+  lang_codes.cpp
   tsmuxerwindow.ui
   muxForm.ui
   checkboxedheaderview.cpp

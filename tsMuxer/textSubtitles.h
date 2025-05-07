@@ -1,5 +1,5 @@
-#ifndef __TEXT_SUBTITLES_H
-#define __TEXT_SUBTITLES_H
+#ifndef TEXT_SUBTITLES_H_
+#define TEXT_SUBTITLES_H_
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN  // Exclude rarely-used stuff from Windows headers
@@ -30,17 +30,17 @@ struct TextAnimation
     float fadeOutDuration;
 };
 
-const static uint8_t PCS_DEF_SEGMENT = 0x16;
-const static uint8_t WINDOWS_DEF_SEGMENT = 0x17;
-const static uint8_t PALETTE_DEF_SEGMENT = 0x14;
-const static uint8_t OBJECT_DEF_SEGMENT = 0x15;
-const static uint8_t END_DEF_SEGMENT = 0x80;
+static constexpr uint8_t PCS_DEF_SEGMENT = 0x16;
+static constexpr uint8_t WINDOWS_DEF_SEGMENT = 0x17;
+static constexpr uint8_t PALETTE_DEF_SEGMENT = 0x14;
+static constexpr uint8_t OBJECT_DEF_SEGMENT = 0x15;
+static constexpr uint8_t END_DEF_SEGMENT = 0x80;
 
-const static uint8_t EPOTH_NORMAL = 0;
-const static uint8_t EPOTH_START = 2;
+static constexpr uint8_t EPOTH_NORMAL = 0;
+static constexpr uint8_t EPOTH_START = 2;
 
-static const double PIXEL_DECODING_RATE = 128 * 1000000 / 8;  // in bytes
-static const double PIXEL_COMPOSITION_RATE = 256 * 1000000 / 8;
+static constexpr double PIXEL_DECODING_RATE = 128.0 / 8 * 1000000;  // in bytes
+static constexpr double PIXEL_COMPOSITION_RATE = 256.0 / 8 * 1000000;
 
 class TextToPGSConverter  //: public TextSubtitlesRenderWin32
 {
@@ -49,58 +49,56 @@ class TextToPGSConverter  //: public TextSubtitlesRenderWin32
 
     TextToPGSConverter(bool sourceIsText);
     ~TextToPGSConverter();
-    void setVideoInfo(int width, int height, double fps);
-    void enlargeCrop(int width, int height, int* newWidth, int* newHeight);
-    void setBottomOffset(int offset) { m_bottomOffset = offset; }
-    uint8_t* doConvert(std::string& text, const TextAnimation& animation, double inTime, double outTime,
+    void setVideoInfo(uint16_t width, uint16_t height, double fps);
+    void enlargeCrop(uint16_t width, uint16_t height, uint16_t* newWidth, uint16_t* newHeight) const;
+    void setBottomOffset(const int offset) { m_bottomOffset = offset; }
+    uint8_t* doConvert(const std::string& text, const TextAnimation& animation, double inTimeSec, double outTimeSec,
                        uint32_t& dstBufSize);
     TextSubtitlesRender* m_textRender;
-    static YUVQuad RGBAToYUVA(uint32_t rgba);
+    static YUVQuad RGBAToYUVA(uint32_t data);
     static RGBQUAD YUVAToRGBA(const YUVQuad& yuv);
     void setImageBuffer(uint8_t* value) { m_imageBuffer = value; }
 
-   public:
     int m_rleLen;
     int m_bottomOffset;
-    int m_composition_number;
-    int m_videoWidth;
-    int m_videoHeight;
+    uint16_t m_composition_number;
+    uint16_t m_videoWidth;
+    uint16_t m_videoHeight;
     double m_videoFps;
     uint8_t* m_pgsBuffer;
     uint8_t* m_imageBuffer;
-    long composePresentationSegment(uint8_t* buff, CompositionMode mode, int64_t pts, int64_t dts, int top,
+    long composePresentationSegment(uint8_t* buff, CompositionMode mode, int64_t pts, int64_t dts, uint16_t top,
                                     bool needPgHeader, bool forced);
-    long composeWindowDefinition(uint8_t* buff, int64_t pts, int64_t dts, int top, int height,
-                                 bool needPgHeader = true);
-    long composeWindow(uint8_t* buff, int top, int height);
+    long composeWindowDefinition(uint8_t* buff, int64_t pts, int64_t dts, uint16_t top, uint16_t height,
+                                 bool needPgHeader = true) const;
+    long composeWindow(uint8_t* buff, uint16_t top, uint16_t height) const;
     long composePaletteDefinition(const Palette& palette, uint8_t* buff, int64_t pts, int64_t dts,
-                                  bool needPgHeader = true);
+                                  bool needPgHeader = true) const;
     long composeObjectDefinition(uint8_t* buff, int64_t pts, int64_t dts, int firstLine, int lastLine,
-                                 bool needPgHeader);
-    long composeVideoDescriptor(uint8_t* buff);
-    long composeCompositionDescriptor(uint8_t* buff, uint16_t number, uint8_t state);
+                                 bool needPgHeader) const;
+    long composeVideoDescriptor(uint8_t* buff) const;
+    static long composeCompositionDescriptor(uint8_t* buff, uint16_t number, uint8_t state);
     long composeEnd(uint8_t* buff, int64_t pts, int64_t dts, bool needPgHeader = true);
-    long writePGHeader(uint8_t* buff, int64_t pts, int64_t dts);
-    double alignToGrid(double value);
+    static long writePGHeader(uint8_t* buff, int64_t pts, int64_t dts);
+    [[nodiscard]] double alignToGrid(double value) const;
     bool rlePack(uint32_t colorMask);
-    void reduceColors(uint8_t mask);
-    int getRepeatCnt(const uint32_t* pos, const uint32_t* end, uint32_t colorMask);
-    uint8_t color32To8(uint32_t* buff, uint32_t colorMask);
+    void reduceColors(uint8_t mask) const;
+    static int getRepeatCnt(const uint32_t* pos, const uint32_t* end, uint32_t colorMask);
+    uint8_t color32To8(const uint32_t* buff, uint32_t colorMask);
     Palette buildPalette(float opacity);
-    int renderedHeight() const;
-    int minLine() const;
-    int maxLine() const;
+    [[nodiscard]] uint16_t renderedHeight() const;
+    [[nodiscard]] uint16_t minLine() const;
+    [[nodiscard]] uint16_t maxLine() const;
 
-    // std::vector<uint32_t> m_rleLineLen;
     std::map<YUVQuad, uint8_t> m_paletteYUV;
     uint8_t* m_renderedData;
 
     Palette m_paletteByColor;
-    uint8_t palette_update_flag;
+    bool palette_update_flag;
     uint8_t m_paletteID;
     uint8_t m_paletteVersion;
-    int m_minLine;
-    int m_maxLine;
+    uint16_t m_minLine;
+    uint16_t m_maxLine;
 };
 };  // namespace text_subtitles
 

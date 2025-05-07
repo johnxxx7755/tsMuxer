@@ -1,12 +1,12 @@
-#ifndef __SINGLE_FILE_MUXER_H
-#define __SINGLE_FILE_MUXER_H
+#ifndef SINGLE_FILE_MUXER_H_
+#define SINGLE_FILE_MUXER_H_
 
 #include <types/types.h>
 
 #include "abstractMuxer.h"
 #include "avPacket.h"
 
-class SingleFileMuxer : public AbstractMuxer
+class SingleFileMuxer final : public AbstractMuxer
 {
    public:
     SingleFileMuxer(MuxerManager* owner);
@@ -22,7 +22,7 @@ class SingleFileMuxer : public AbstractMuxer
     void parseMuxOpt(const std::string& opts) override;
 
    private:
-    const static int ADD_DATA_SIZE = 2048;
+    static constexpr int ADD_DATA_SIZE = 2048;
     struct StreamInfo
     {
         File m_file;
@@ -34,14 +34,14 @@ class SingleFileMuxer : public AbstractMuxer
         int m_bufLen;
         uint64_t m_totalWrited;
         AbstractStreamReader* m_codecReader;
-        StreamInfo(int blockSize)
+        StreamInfo(const int blockSize)
         {
             m_buffer = new uint8_t[blockSize + MAX_AV_PACKET_SIZE +
                                    ADD_DATA_SIZE];  // reserv extra ADD_DATA_SIZE bytes for stream additional data
             m_bufLen = 0;
             m_dts = -1;
             m_pts = -1;
-            m_codecReader = 0;
+            m_codecReader = nullptr;
             m_totalWrited = 0;
             m_part = 1;
         }
@@ -55,7 +55,7 @@ class SingleFileMuxer : public AbstractMuxer
     void writeOutBuffer(StreamInfo* streamInfo);
 };
 
-class SingleFileMuxerFactory : public AbstractMuxerFactory
+class SingleFileMuxerFactory final : public AbstractMuxerFactory
 {
    public:
     AbstractMuxer* newInstance(MuxerManager* owner) const override { return new SingleFileMuxer(owner); }

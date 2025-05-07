@@ -3,7 +3,7 @@
 
 #include <fs/systemlog.h>
 
-void WriterData::execute()
+void WriterData::execute() const
 {
     switch (m_command)
     {
@@ -16,7 +16,7 @@ void WriterData::execute()
         break;
     default:
         break;
-    };
+    }
 }
 
 BufferedFileWriter::BufferedFileWriter() : m_terminated(false), m_writeQueue(WRITE_QUEUE_MAX_SIZE)
@@ -63,7 +63,7 @@ void BufferedFileWriter::thread_main()
             m_lastErrorCode = -1;
             LTRACE(LT_ERROR, 0, "BufferedFileWriter::thread_main() throws unknown exception");
         }
-        m_nothingToExecute = m_writeQueue.size() == 0;
+        m_nothingToExecute = m_writeQueue.empty();
     }
 }
 

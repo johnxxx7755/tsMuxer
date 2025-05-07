@@ -1,12 +1,12 @@
 #ifndef VC1_PARSER_H
 #define VC1_PARSER_H
 
-#include <types/types.h>
-
+#include <cstring>
 #include <string>
 
+#include <types/types.h>
+
 #include "bitStream.h"
-#include "memory.h"
 #include "vod_common.h"
 
 enum class VC1Code
@@ -22,7 +22,9 @@ enum class VC1Code
     USER_FIELD,
     USER_FRAME,
     USER_ENTRYPOINT,
-    USER_SEQHDR
+    USER_SEQHDR,
+    // all other start code suffixes are reserved or forbidden
+    RESERVED
 };
 
 enum class Profile
@@ -33,16 +35,8 @@ enum class Profile
     ADVANCED
 };
 
-const int ff_vc1_fps_nr[7] = {24, 25, 30, 50, 60, 48, 72};
-const int ff_vc1_fps_dr[2] = {1000, 1001};
-
-/*
-struct AVRational {
-        int w, h;
-        AVRational() {w = h =0;}
-        AVRational(int _w, int _h) {w = _w; h = _h;}
-};
-*/
+constexpr uint8_t ff_vc1_fps_nr[7] = {24, 25, 30, 50, 60, 48, 72};
+constexpr uint16_t ff_vc1_fps_dr[2] = {1000, 1001};
 
 const AVRational ff_vc1_pixel_aspect[16] = {
     AVRational(0, 1),   AVRational(1, 1),    AVRational(12, 11), AVRational(10, 11),
@@ -57,16 +51,18 @@ enum class VC1PictType
     B_TYPE,
     BI_TYPE
 };
+
 extern const char* pict_type_str[4];
 
 class VC1Unit
 {
    public:
-    VC1Unit() : bitReader(), m_nalBuffer(0), m_nalBufferLen(0) {}
+    VC1Unit() : m_nalBuffer(nullptr), m_nalBufferLen(0) {}
     ~VC1Unit() { delete[] m_nalBuffer; }
 
-    inline static bool isMarker(uint8_t* ptr) { return ptr[0] == ptr[1] == 0 && ptr[2] == 1; }
-    inline static uint8_t* findNextMarker(uint8_t* buffer, uint8_t* end)
+    static bool isMarker(const uint8_t* ptr) { return ptr[0] == ptr[1] == 0 && ptr[2] == 1; }
+
+    static uint8_t* findNextMarker(uint8_t* buffer, uint8_t* end)
     {
         for (buffer += 2; buffer < end;)
         {
@@ -74,22 +70,23 @@ class VC1Unit
                 buffer += 3;
             else if (*buffer == 0)
                 buffer++;
-            else if (buffer[-2] == 0 && buffer[-1] == 0)
+            else  // *buffer == 1
             {
-                return buffer - 2;
-            }
-            else
+                if (buffer[-2] == 0 && buffer[-1] == 0)
+                    return buffer - 2;
                 buffer += 3;
+            }
         }
         return end;
     }
-    inline int64_t vc1_unescape_buffer(uint8_t* src, int64_t size)
+
+    int64_t vc1_unescape_buffer(uint8_t* src, const int64_t size)
     {
         delete[] m_nalBuffer;
         m_nalBuffer = new uint8_t[size];
         if (size < 4)
         {
-            std::copy(src, src + size, m_nalBuffer);
+            std::copy_n(src, size, m_nalBuffer);
             m_nalBufferLen = size;
             return size;
         }
@@ -108,12 +105,13 @@ class VC1Unit
         m_nalBufferLen = dsize;
         return dsize;
     }
-    inline int64_t vc1_escape_buffer(uint8_t* dst)
+
+    int64_t vc1_escape_buffer(uint8_t* dst) const
     {
-        uint8_t* srcStart = m_nalBuffer;
-        uint8_t* initDstBuffer = dst;
-        uint8_t* srcBuffer = m_nalBuffer;
-        uint8_t* srcEnd = m_nalBuffer + m_nalBufferLen;
+        const uint8_t* srcStart = m_nalBuffer;
+        const uint8_t* initDstBuffer = dst;
+        const uint8_t* srcBuffer = m_nalBuffer;
+        const uint8_t* srcEnd = m_nalBuffer + m_nalBufferLen;
         for (srcBuffer += 2; srcBuffer < srcEnd;)
         {
             if (*srcBuffer > 3)
@@ -138,10 +136,11 @@ class VC1Unit
         dst += srcEnd - srcStart;
         return dst - initDstBuffer;
     }
-    const BitStreamReader& getBitReader() { return bitReader; }
+
+    [[nodiscard]] const BitStreamReader& getBitReader() const { return bitReader; }
 
    protected:
-    void updateBits(int bitOffset, int bitLen, int value);
+    void updateBits(int bitOffset, int bitLen, int value) const;
     BitStreamReader bitReader;
     uint8_t* m_nalBuffer;
     size_t m_nalBufferLen;
@@ -151,8 +150,7 @@ class VC1SequenceHeader : public VC1Unit
 {
    public:
     VC1SequenceHeader()
-        : VC1Unit(),
-          profile(Profile::SIMPLE),
+        : profile(Profile::SIMPLE),
           rangered(0),
           max_b_frames(0),
           finterpflag(false),
@@ -162,7 +160,7 @@ class VC1SequenceHeader : public VC1Unit
           display_width(0),
           display_height(0),
           pulldown(0),
-          interlace(0),
+          interlace(false),
           tfcntrflag(false),
           psf(0),
           time_base_num(0),
@@ -175,13 +173,13 @@ class VC1SequenceHeader : public VC1Unit
     }
     Profile profile;
     int rangered;
-    int max_b_frames;
+    uint8_t max_b_frames;
     int finterpflag;  ///< INTERPFRM present
-    int level;
-    int coded_width;
-    int coded_height;
-    int display_width;
-    int display_height;
+    uint8_t level;
+    uint16_t coded_width;
+    uint16_t coded_height;
+    uint16_t display_width;
+    uint16_t display_height;
     int pulldown;     ///< TFF/RFF present
     bool interlace;   ///< Progressive/interlaced (RPTFTM syntax element)
     bool tfcntrflag;  ///< TFCNTR present
@@ -189,7 +187,7 @@ class VC1SequenceHeader : public VC1Unit
     int time_base_num;
     int time_base_den;
     int hrd_param_flag;
-    int hrd_num_leaky_buckets;
+    uint8_t hrd_num_leaky_buckets;
 
     /* for decoding entry point */
     int decode_entry_point();
@@ -198,8 +196,8 @@ class VC1SequenceHeader : public VC1Unit
     AVRational sample_aspect_ratio;  // w, h
     int decode_sequence_header();
     int decode_sequence_header_adv();
-    std::string getStreamDescr();
-    double getFPS();
+    [[nodiscard]] std::string getStreamDescr() const;
+    [[nodiscard]] double getFPS() const;
     void setFPS(double value);
 
    private:
@@ -209,14 +207,14 @@ class VC1SequenceHeader : public VC1Unit
 class VC1Frame : public VC1Unit
 {
    public:
-    VC1Frame() : VC1Unit(), fcm(0), pict_type(VC1PictType::I_TYPE), rptfrm(0), tff(0), rff(0), rptfrmBitPos(0) {}
+    VC1Frame() : fcm(0), pict_type(VC1PictType::I_TYPE), rptfrm(0), tff(0), rff(0), rptfrmBitPos(0) {}
     int fcm;
     VC1PictType pict_type;
-    int rptfrm;
+    uint8_t rptfrm;
     int tff;
     int rff;
     int rptfrmBitPos;
-    int decode_frame_direct(const VC1SequenceHeader& sequenceHdr, uint8_t* buffer, uint8_t* end);
+    int decode_frame_direct(const VC1SequenceHeader& sequenceHdr, uint8_t* buffer, const uint8_t* end);
 
    private:
     int vc1_parse_frame_header(const VC1SequenceHeader& sequenceHdr);

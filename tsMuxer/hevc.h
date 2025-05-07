@@ -1,16 +1,12 @@
-#ifndef __HEVC_H_
-#define __HEVC_H_
+#ifndef HEVC_H_
+#define HEVC_H_
 
 #include "nalUnits.h"
 
 struct HevcUnit
 {
-    HevcUnit()
-        : nal_unit_type(), nuh_layer_id(0), nuh_temporal_id_plus1(0), m_nalBuffer(0), m_nalBufferLen(0), m_reader()
-    {
-    }
+    HevcUnit() : nal_unit_type(), nuh_layer_id(0), nuh_temporal_id_plus1(0), m_nalBuffer(nullptr), m_nalBufferLen(0) {}
 
-   public:
     enum class NalType
     {
         TRAIL_N = 0,  // first slice
@@ -50,65 +46,60 @@ struct HevcUnit
 
     void decodeBuffer(const uint8_t* buffer, const uint8_t* end);
     int deserialize();
-    int serializeBuffer(uint8_t* dstBuffer, uint8_t* dstEnd) const;
+    int serializeBuffer(uint8_t* dstBuffer, const uint8_t* dstEnd) const;
 
-    int nalBufferLen() const { return m_nalBufferLen; }
+    [[nodiscard]] int nalBufferLen() const { return m_nalBufferLen; }
 
-   public:
     NalType nal_unit_type;
-    int nuh_layer_id;
-    int nuh_temporal_id_plus1;
+    uint8_t nuh_layer_id;
+    uint8_t nuh_temporal_id_plus1;
 
    protected:
     unsigned extractUEGolombCode();
     int extractSEGolombCode();
-    void updateBits(int bitOffset, int bitLen, int value);
+    void updateBits(int bitOffset, int bitLen, unsigned value) const;
 
-   protected:
     uint8_t* m_nalBuffer;
     int m_nalBufferLen;
     BitStreamReader m_reader;
 };
 
-struct HevcUnitWithProfile : public HevcUnit
+struct HevcUnitWithProfile : HevcUnit
 {
     HevcUnitWithProfile();
-    std::string getProfileString() const;
+    [[nodiscard]] std::string getProfileString() const;
 
-   public:
-    int profile_idc;
-    int level_idc;
-    int interlaced_source_flag;
+    uint8_t profile_idc;
+    uint8_t level_idc;
+    bool interlaced_source_flag;
 
    protected:
     int profile_tier_level(int subLayers);
 };
 
-struct HevcVpsUnit : public HevcUnitWithProfile
+struct HevcVpsUnit : HevcUnitWithProfile
 {
     HevcVpsUnit();
     int deserialize();
-    double getFPS() const;
-    void setFPS(double value);
-    std::string getDescription() const;
+    [[nodiscard]] double getFPS() const;
+    void setFPS(double fps);
+    [[nodiscard]] std::string getDescription() const;
 
-   public:
     int vps_id;
     unsigned num_units_in_tick;
     unsigned time_scale;
     int num_units_in_tick_bit_pos;
 };
 
-struct HevcSpsUnit : public HevcUnitWithProfile
+struct HevcSpsUnit : HevcUnitWithProfile
 {
     HevcSpsUnit();
     int deserialize();
-    double getFPS() const;
-    std::string getDescription() const;
+    [[nodiscard]] double getFPS() const;
+    [[nodiscard]] std::string getDescription() const;
 
-   public:
-    unsigned vps_id;
-    int max_sub_layers;
+    uint8_t vps_id;
+    uint8_t max_sub_layers;
     unsigned sps_id;
     unsigned chromaFormat;
     bool separate_colour_plane_flag;
@@ -121,11 +112,11 @@ struct HevcSpsUnit : public HevcUnitWithProfile
     bool vcl_hrd_parameters_present_flag;
     bool sub_pic_hrd_params_present_flag;
 
-    std::vector<int> num_delta_pocs;
+    std::vector<unsigned> num_delta_pocs;
 
-    int colour_primaries;
-    int transfer_characteristics;
-    int matrix_coeffs;
+    uint8_t colour_primaries;
+    uint8_t transfer_characteristics;
+    uint8_t matrix_coeffs;
     unsigned chroma_sample_loc_type_top_field;
     unsigned chroma_sample_loc_type_bottom_field;
 
@@ -136,50 +127,47 @@ struct HevcSpsUnit : public HevcUnitWithProfile
 
    private:
     int hrd_parameters(bool commonInfPresentFlag, int maxNumSubLayersMinus1);
-    int sub_layer_hrd_parameters(int subLayerId);
+    int sub_layer_hrd_parameters(unsigned cpb_cnt_minus1);
     int short_term_ref_pic_set(unsigned stRpsIdx);
     int vui_parameters();
     int scaling_list_data();
 };
 
-struct HevcPpsUnit : public HevcUnit
+struct HevcPpsUnit : HevcUnit
 {
     HevcPpsUnit();
     int deserialize();
 
-   public:
     unsigned pps_id;
     unsigned sps_id;
     bool dependent_slice_segments_enabled_flag;
     bool output_flag_present_flag;
-    int num_extra_slice_header_bits;
+    uint8_t num_extra_slice_header_bits;
 };
 
-struct HevcHdrUnit : public HevcUnit
+struct HevcHdrUnit : HevcUnit
 {
     HevcHdrUnit();
     int deserialize();
 
-   public:
     bool isHDR10;
     bool isHDR10plus;
     bool isDVRPU;
     bool isDVEL;
 };
 
-struct HevcSliceHeader : public HevcUnit
+struct HevcSliceHeader : HevcUnit
 {
     HevcSliceHeader();
     int deserialize(const HevcSpsUnit* sps, const HevcPpsUnit* pps);
-    bool isIDR() const;
+    [[nodiscard]] bool isIDR() const;
 
-   public:
     bool first_slice;
     unsigned pps_id;
     unsigned slice_type;
-    int pic_order_cnt_lsb;
+    uint16_t pic_order_cnt_lsb;
 };
 
-std::vector<std::vector<uint8_t>> hevc_extract_priv_data(const uint8_t* buff, int size, int* nal_size);
+std::vector<std::vector<uint8_t>> hevc_extract_priv_data(const uint8_t* buff, int size, uint8_t* nal_size);
 
-#endif  // __HEVC_H_
+#endif  // _HEVC_H_

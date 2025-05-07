@@ -1,5 +1,5 @@
-#ifndef __T_TYPES_H
-#define __T_TYPES_H
+#ifndef T_TYPES_H_
+#define T_TYPES_H_
 
 #include <cstdint>
 #include <regex>
@@ -13,24 +13,24 @@ char* strnstr(const char* s1, const char* s2, size_t len);
 
 uint64_t my_ntohll(const uint64_t& original);
 uint64_t my_htonll(const uint64_t& original);
-uint32_t my_ntohl(const uint32_t val);
-uint16_t my_ntohs(const uint16_t val);
+uint32_t my_ntohl(uint32_t val);
+uint16_t my_ntohs(uint16_t val);
 #define my_htonl(val) my_ntohl(val)
 #define my_htons(val) my_ntohs(val)
 
-int64_t strToInt64(const char* const);
-uint64_t strToInt64u(const char* const);
-int32_t strToInt32(const char* const);
+int64_t strToInt64(const char*);
+uint64_t strToInt64u(const char*);
+int32_t strToInt32(const char*);
 int32_t strToInt32(const std::string&);
-int32_t strToInt32(const char* const, const int radix);
-uint32_t strToInt32u(const char* const, const int radix = 10);
-int16_t strToInt16(const char* const);
-uint16_t strToInt16u(const char* const);
-int8_t strToInt8(const char* const);
-uint8_t strToInt8u(const char* const);
-double strToDouble(const char* const);  // The length of the string should not exceed 15 characters
-float strToFloat(const char* const);    // The length of the string should not exceed 15 characters
-bool strToBool(const char* const);
+int32_t strToInt32(const char*, int radix);
+uint32_t strToInt32u(const char*, int radix = 10);
+int16_t strToInt16(const char*);
+uint16_t strToInt16u(const char*);
+int8_t strToInt8(const char*);
+uint8_t strToInt8u(const char*);
+double strToDouble(const char*);  // The length of the string should not exceed 15 characters
+float strToFloat(const char*);    // The length of the string should not exceed 15 characters
+bool strToBool(const char*);
 bool strEndWith(const std::string& str, const std::string& substr);
 bool strStartWith(const std::string& str, const std::string& substr);
 std::string strPadLeft(const std::string& str, size_t newSize, char filler);
@@ -67,7 +67,7 @@ std::string int16ToStr(const int16_t&);
 std::string int16uToStr(const uint16_t&);
 std::string int8ToStr(const int8_t&);
 std::string int8uToStr(const uint8_t&);
-void int8uToStr(const uint8_t&, char* const buf);
+void int8uToStr(const uint8_t&, char* buf);
 
 std::string boolToStr(const bool&);
 
@@ -85,11 +85,11 @@ template <typename Type>
 class CaseChanger
 {
    public:
-    CaseChanger(CaseType caseType = CaseType::ctLower) : m_case(caseType) {}
+    CaseChanger(const CaseType caseType = CaseType::ctLower) : m_case(caseType) {}
 
     int operator()(Type& elem) const { return 0; }
 
-    int operator()(char& elem) const { return m_case == CaseType::ctLower ? tolower(elem) : toupper(elem); }
+    int operator()(const char& elem) const { return m_case == CaseType::ctLower ? tolower(elem) : toupper(elem); }
 
    private:
     CaseType m_case;
@@ -99,6 +99,7 @@ typedef uint16_t ip_port_t;
 
 uint32_t roundDown(const uint32_t& value, const uint32_t& roundVal);
 uint32_t roundUp(const uint32_t& value, const uint32_t& roundVal);
+int32_t roundUp(const int32_t& value, const int32_t& roundVal);
 
 // 64-bit versions
 uint64_t roundDown64(const uint64_t& value, const uint64_t& roundVal);
@@ -113,4 +114,4 @@ std::vector<wchar_t> toWide(const std::string&);
 std::string toUtf8(const wchar_t*);
 #endif
 
-#endif  //__T_TYPES_H
+#endif  //_T_TYPES_H_

@@ -1,9 +1,7 @@
 #include "dvbSubStreamReader.h"
 
-#if 1
-
-const static uint64_t TS_FREQ_TO_INT_FREQ_COEFF = INTERNAL_PTS_FREQ / PCR_FREQUENCY;
-static const int BAD_FRAME = -1;
+static constexpr uint64_t TS_FREQ_TO_INT_FREQ_COEFF = INTERNAL_PTS_FREQ / PCR_FREQUENCY;
+static constexpr int BAD_FRAME = -1;
 
 int DVBSubStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdmvDescriptors) { return 0; }
 
@@ -11,8 +9,7 @@ uint8_t* DVBSubStreamReader::findFrame(uint8_t* buff, uint8_t* end)
 {
     if (m_firstFrame)
         return buff;
-    else
-        return buff + 1;
+    return buff + 1;
 }
 
 #define READ_OFFSET(a) (m_big_offsets ? AV_RB32(a) : AV_RB16(a))
@@ -21,13 +18,11 @@ int DVBSubStreamReader::decodeFrame(uint8_t* buff, uint8_t* end, int& skipBytes,
 {
     skipBytes = 0;
     skipBeforeBytes = 0;
-    int rez;
-    rez = intDecodeFrame(buff, end);
+    const int rez = intDecodeFrame(buff, end);
     if (rez <= 0)
         return rez;
-    int64_t currentTime = m_start_display_time;
-    int nextRez;
-    nextRez = intDecodeFrame(buff + rez, end);
+    const int64_t currentTime = m_start_display_time;
+    const int nextRez = intDecodeFrame(buff + rez, end);
     if (nextRez <= 0)
         return rez;
     m_frameDuration = m_start_display_time - currentTime;
@@ -40,12 +35,12 @@ int DVBSubStreamReader::intDecodeFrame(uint8_t* buff, uint8_t* end)
 
     int pos, cmd, x1, y1, x2, y2, offset1, offset2, next_cmd_pos;
     int cmd_pos, is_8bit = 0;
-    const uint8_t* yuv_palette = 0;
+    const uint8_t* yuv_palette = nullptr;
     uint8_t colormap[4]{0}, alpha[256]{0};
     int date;
     int i;
     int is_menu = 0;
-    int buf_size = (int)(end - buff);
+    int buf_size = static_cast<int>(end - buff);
 
     if (buf_size < 10)
         return NOT_ENOUGH_BUFFER;
@@ -99,11 +94,11 @@ int DVBSubStreamReader::intDecodeFrame(uint8_t* buff, uint8_t* end)
                 break;
             case 0x01:
                 // set start date
-                m_start_display_time = ((int64_t)date << 10) * TS_FREQ_TO_INT_FREQ_COEFF;
+                m_start_display_time = (static_cast<int64_t>(date) << 10) * TS_FREQ_TO_INT_FREQ_COEFF;
                 break;
             case 0x02:
                 // set end date
-                m_end_display_time = ((int64_t)date << 10) * TS_FREQ_TO_INT_FREQ_COEFF;
+                m_end_display_time = (static_cast<int64_t>(date) << 10) * TS_FREQ_TO_INT_FREQ_COEFF;
                 break;
             case 0x03:
                 // set colormap
@@ -179,14 +174,11 @@ int DVBSubStreamReader::intDecodeFrame(uint8_t* buff, uint8_t* end)
     return NOT_ENOUGH_BUFFER;
 }
 
-double DVBSubStreamReader::getFrameDurationNano() { return (double)m_frameDuration; }
+double DVBSubStreamReader::getFrameDuration() { return static_cast<double>(m_frameDuration); }
 
 const std::string DVBSubStreamReader::getStreamInfo()
 {
     if (m_big_offsets)
         return "HD-DVD subpicture";
-    else
-        return "Subpicture";
+    return "Subpicture";
 }
-
-#endif

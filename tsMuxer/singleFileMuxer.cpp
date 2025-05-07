@@ -1,37 +1,36 @@
 #include "singleFileMuxer.h"
 
 #include <fs/directory.h>
+#include <fs/systemlog.h>
 #include <fs/textfile.h>
 
 #include "abstractMuxer.h"
 #include "ac3StreamReader.h"
-#include "avCodecs.h"
 #include "lpcmStreamReader.h"
 #include "mpegAudioStreamReader.h"
 #include "muxerManager.h"
-#include "psgStreamReader.h"
+#include "pgsStreamReader.h"
 #include "srtStreamReader.h"
 #include "vodCoreException.h"
 
 #ifndef win32
-#include <stdio.h>
+#include <cstdio>
 #endif
 
 using namespace std;
 
-std::string getNewName(const std::string& oldName, int cnt)
+std::string getNewName(const std::string& oldName, const int cnt)
 {
     if (strEndWith(oldName, ".wav"))
         return oldName.substr(0, oldName.size() - 4) + "." + int32ToStr(cnt) + ".wav";
-    else
-        return oldName + ".wav" + int32ToStr(cnt);
+    return oldName + ".wav" + int32ToStr(cnt);
 }
 
 SingleFileMuxer::SingleFileMuxer(MuxerManager* owner) : AbstractMuxer(owner), m_lastIndex(-1) {}
 
 SingleFileMuxer::~SingleFileMuxer()
 {
-    for (auto itr = m_streamInfo.begin(); itr != m_streamInfo.end(); ++itr) delete itr->second;
+    for (const auto& itr : m_streamInfo) delete itr.second;
 }
 
 void SingleFileMuxer::intAddStream(const std::string& streamName, const std::string& codecName, int streamIndex,
@@ -52,7 +51,7 @@ void SingleFileMuxer::intAddStream(const std::string& streamName, const std::str
     }
     else if (codecName == "A_MP3")
     {
-        const auto mp3Reader = static_cast<MpegAudioStreamReader*>(codecReader);
+        const auto mp3Reader = dynamic_cast<MpegAudioStreamReader*>(codecReader);
         if (mp3Reader->getLayer() == 3)
             fileExt = ".mp3";
         else
@@ -72,23 +71,20 @@ void SingleFileMuxer::intAddStream(const std::string& streamName, const std::str
     }
     else if (codecName == "A_AC3")
     {
-        const auto ac3Reader = static_cast<AC3StreamReader*>(codecReader);
+        const auto ac3Reader = dynamic_cast<AC3StreamReader*>(codecReader);
         if (ac3Reader->isTrueHD() && !ac3Reader->getDownconvertToAC3())
             fileExt = ".ac3+thd";
-        else if (ac3Reader->isEAC3())
-            fileExt = ".ec3";
+        else if (ac3Reader->isEAC3() && !ac3Reader->getDownconvertToAC3())
+        {
+            if (ac3Reader->isAC3())
+                fileExt = ".ac3+ec3";
+            else
+                fileExt = ".ec3";
+        }
         else
             fileExt = ".ac3";
     }
-    else if (codecName == "S_SUP")
-    {
-        fileExt = ".sup";
-    }
-    else if (codecName == "S_HDMV/PGS")
-    {
-        fileExt = ".sup";
-    }
-    else if (codecName == "S_TEXT/UTF8")
+    else if (codecName == "S_SUP" || codecName == "S_HDMV/PGS" || codecName == "S_TEXT/UTF8")
     {
         fileExt = ".sup";
     }
@@ -123,7 +119,7 @@ void SingleFileMuxer::intAddStream(const std::string& streamName, const std::str
     vector<string> fileList = extractFileList(streamName);
     string fileName;
     if (fileList.size() < 3)
-        for (int i = 0; i < (int)fileList.size(); i++)
+        for (int i = 0; i < static_cast<int>(fileList.size()); i++)
         {
             if (i > 0)
                 fileName += '+';
@@ -156,7 +152,7 @@ void SingleFileMuxer::intAddStream(const std::string& streamName, const std::str
         fileName += itr->second;
     }
 
-    auto streamInfo = new StreamInfo((unsigned)DEFAULT_FILE_BLOCK_SIZE);
+    auto streamInfo = new StreamInfo(static_cast<unsigned>(DEFAULT_FILE_BLOCK_SIZE));
     streamInfo->m_fileName = fileName + fileExt;
     if (streamInfo->m_fileName.size() > 254)
         LTRACE(LT_ERROR, 2, "Error: File name too long.");
@@ -166,7 +162,7 @@ void SingleFileMuxer::intAddStream(const std::string& streamName, const std::str
 
 void SingleFileMuxer::openDstFile()
 {
-    string dir = closeDirPath(toNativeSeparators(m_origFileName));
+    const string dir = closeDirPath(toNativeSeparators(m_origFileName));
     // if (!createDir(dstFileName, true))
     //	THROW(ERR_CANT_CREATE_FILE, "Can't create output directory " << dstFileName);
     int systemFlags = 0;
@@ -174,23 +170,23 @@ void SingleFileMuxer::openDstFile()
     if (m_owner->isAsyncMode())
         systemFlags += FILE_FLAG_NO_BUFFERING;
 #endif
-    for (auto itr = m_streamInfo.begin(); itr != m_streamInfo.end(); ++itr)
+    for (auto [index, si] : m_streamInfo)
     {
-        itr->second->m_fileName = dir + itr->second->m_fileName;
-        if (!itr->second->m_file.open(itr->second->m_fileName.c_str(), File::ofWrite, systemFlags))
-            THROW(ERR_CANT_CREATE_FILE, "Can't create output file " << itr->second->m_fileName);
+        si->m_fileName = dir + si->m_fileName;
+        if (!si->m_file.open(si->m_fileName.c_str(), File::ofWrite, systemFlags))
+            THROW(ERR_CANT_CREATE_FILE, "Can't create output file " << si->m_fileName)
     }
 }
 
 void SingleFileMuxer::writeOutBuffer(StreamInfo* streamInfo)
 {
-    const uint32_t blockSize = DEFAULT_FILE_BLOCK_SIZE;
+    constexpr int blockSize = DEFAULT_FILE_BLOCK_SIZE;
     if (streamInfo->m_bufLen >= blockSize)
     {
-        int toFileLen = blockSize & 0xffff0000;
+        constexpr int toFileLen = blockSize & 0xffff0000;
         if (m_owner->isAsyncMode())
         {
-            auto newBuf = new uint8_t[blockSize + MAX_AV_PACKET_SIZE];
+            const auto newBuf = new uint8_t[blockSize + MAX_AV_PACKET_SIZE];
             memcpy(newBuf, streamInfo->m_buffer + toFileLen, streamInfo->m_bufLen - toFileLen);
             m_owner->asyncWriteBuffer(this, streamInfo->m_buffer, toFileLen, &streamInfo->m_file);
             streamInfo->m_buffer = newBuf;
@@ -204,7 +200,7 @@ void SingleFileMuxer::writeOutBuffer(StreamInfo* streamInfo)
         streamInfo->m_bufLen -= toFileLen;
     }
 
-    auto lpcmReader = dynamic_cast<LPCMStreamReader*>(streamInfo->m_codecReader);
+    const auto lpcmReader = dynamic_cast<LPCMStreamReader*>(streamInfo->m_codecReader);
     if (lpcmReader && streamInfo->m_totalWrited >= 0xffff0000ul - blockSize)
     // if (lpcmReader && streamInfo->m_totalWrited >= 0x0ffffffful)
     {
@@ -217,10 +213,10 @@ void SingleFileMuxer::writeOutBuffer(StreamInfo* streamInfo)
         streamInfo->m_file.open(streamInfo->m_fileName.c_str(), File::ofWrite + File::ofNoTruncate);
         lpcmReader->beforeFileCloseEvent(streamInfo->m_file);
         streamInfo->m_file.close();
-        std::string newName = getNewName(streamInfo->m_fileName.c_str(), streamInfo->m_part);
-        deleteFile(newName.c_str());
+        const std::string newName = getNewName(streamInfo->m_fileName, streamInfo->m_part);
+        deleteFile(newName);
         if (rename(streamInfo->m_fileName.c_str(), newName.c_str()) != 0)
-            THROW(ERR_COMMON, "Can't rename file " << streamInfo->m_fileName << " to " << newName);
+            THROW(ERR_COMMON, "Can't rename file " << streamInfo->m_fileName << " to " << newName)
         streamInfo->m_part++;
         int systemFlags = 0;
         streamInfo->m_bufLen = 0;
@@ -229,7 +225,7 @@ void SingleFileMuxer::writeOutBuffer(StreamInfo* streamInfo)
             systemFlags += FILE_FLAG_NO_BUFFERING;
 #endif
         if (!streamInfo->m_file.open(streamInfo->m_fileName.c_str(), File::ofWrite + systemFlags))
-            THROW(ERR_COMMON, "Can't open file " << streamInfo->m_fileName);
+            THROW(ERR_COMMON, "Can't open file " << streamInfo->m_fileName)
         lpcmReader->setFirstFrame(true);
         streamInfo->m_totalWrited = 0;
     }
@@ -243,10 +239,10 @@ bool SingleFileMuxer::muxPacket(AVPacket& avPacket)
     if (avPacket.dts != streamInfo->m_dts || avPacket.pts != streamInfo->m_pts ||
         m_lastIndex != avPacket.stream_index || avPacket.flags & AVPacket::FORCE_NEW_FRAME)
     {
-        const uint32_t blockSize = DEFAULT_FILE_BLOCK_SIZE;
+        constexpr uint32_t blockSize = DEFAULT_FILE_BLOCK_SIZE;
         streamInfo->m_bufLen += avPacket.codec->writeAdditionData(
             streamInfo->m_buffer + streamInfo->m_bufLen,
-            streamInfo->m_buffer + blockSize + MAX_AV_PACKET_SIZE + ADD_DATA_SIZE, avPacket, 0);
+            streamInfo->m_buffer + blockSize + MAX_AV_PACKET_SIZE + ADD_DATA_SIZE, avPacket, nullptr);
         writeOutBuffer(streamInfo);
     }
     m_lastIndex = avPacket.stream_index;
@@ -260,16 +256,16 @@ bool SingleFileMuxer::muxPacket(AVPacket& avPacket)
 
 bool SingleFileMuxer::doFlush()
 {
-    for (auto itr = m_streamInfo.begin(); itr != m_streamInfo.end(); ++itr)
+    for (const auto& [fst, snd] : m_streamInfo)
     {
-        StreamInfo* streamInfo = itr->second;
-        unsigned lastBlockSize = streamInfo->m_bufLen & 0xffff;  // last 64K of data
-        unsigned roundBufLen = streamInfo->m_bufLen & 0xffff0000;
+        StreamInfo* streamInfo = snd;
+        const int lastBlockSize = streamInfo->m_bufLen & 0xffff;  // last 64K of data
+        const int roundBufLen = streamInfo->m_bufLen & 0x7fff0000;
         if (m_owner->isAsyncMode())
         {
             if (lastBlockSize > 0)
             {
-                auto newBuff = new uint8_t[lastBlockSize];
+                const auto newBuff = new uint8_t[lastBlockSize];
                 memcpy(newBuff, streamInfo->m_buffer + roundBufLen, lastBlockSize);
                 m_owner->asyncWriteBuffer(this, streamInfo->m_buffer, roundBufLen, &streamInfo->m_file);
                 streamInfo->m_buffer = newBuff;
@@ -277,7 +273,7 @@ bool SingleFileMuxer::doFlush()
             else
             {
                 m_owner->asyncWriteBuffer(this, streamInfo->m_buffer, roundBufLen, &streamInfo->m_file);
-                streamInfo->m_buffer = 0;
+                streamInfo->m_buffer = nullptr;
             }
         }
         else
@@ -292,9 +288,9 @@ bool SingleFileMuxer::doFlush()
 
 bool SingleFileMuxer::close()
 {
-    for (auto itr = m_streamInfo.begin(); itr != m_streamInfo.end(); ++itr)
+    for (const auto& [fst, snd] : m_streamInfo)
     {
-        StreamInfo* streamInfo = itr->second;
+        StreamInfo* streamInfo = snd;
         if (!streamInfo->m_file.close())
             return false;
         if (streamInfo->m_bufLen > 0)
@@ -311,10 +307,10 @@ bool SingleFileMuxer::close()
 
             if (streamInfo->m_part > 1)
             {
-                std::string newName = getNewName(streamInfo->m_fileName.c_str(), streamInfo->m_part);
-                deleteFile(newName.c_str());
+                std::string newName = getNewName(streamInfo->m_fileName, streamInfo->m_part);
+                deleteFile(newName);
                 if (rename(streamInfo->m_fileName.c_str(), newName.c_str()) != 0)
-                    THROW(ERR_COMMON, "Can't rename file " << streamInfo->m_fileName << " to " << newName);
+                    THROW(ERR_COMMON, "Can't rename file " << streamInfo->m_fileName << " to " << newName)
             }
         }
     }
@@ -323,11 +319,11 @@ bool SingleFileMuxer::close()
 
 void SingleFileMuxer::parseMuxOpt(const std::string& opts)
 {
-    vector<string> params = splitStr(opts.c_str(), ' ');
+    const vector<string> params = splitStr(opts.c_str(), ' ');
     for (auto& i : params)
     {
         vector<string> paramPair = splitStr(trimStr(i).c_str(), '=');
-        if (paramPair.size() == 0)
+        if (paramPair.empty())
             continue;
         if (paramPair[0] == "--split-duration")
         {

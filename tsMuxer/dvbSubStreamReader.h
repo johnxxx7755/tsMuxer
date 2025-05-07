@@ -1,16 +1,13 @@
-#ifndef __DVB_SUB_STREAM_READRE
-#define __DVB_SUB_STREAM_READRE
+#ifndef DVB_SUB_STREAM_READER_
+#define DVB_SUB_STREAM_READER_
 
 #include "simplePacketizerReader.h"
 
-#if 1
-
-class DVBSubStreamReader : public SimplePacketizerReader
+class DVBSubStreamReader final : public SimplePacketizerReader
 {
    public:
     DVBSubStreamReader()
-        : SimplePacketizerReader(),
-          m_firstFrame(true),
+        : m_firstFrame(true),
           m_big_offsets(0),
           m_offset_size(0),
           m_start_display_time(0),
@@ -24,12 +21,12 @@ class DVBSubStreamReader : public SimplePacketizerReader
     int getHeaderLen() override { return 10; }
     uint8_t* findFrame(uint8_t* buff, uint8_t* end) override;
     int decodeFrame(uint8_t* buff, uint8_t* end, int& skipBytes, int& skipBeforeBytes) override;
-    double getFrameDurationNano() override;
+    double getFrameDuration() override;
     const CodecInfo& getCodecInfo() override { return dvbSubCodecInfo; }
     const std::string getStreamInfo() override;
-    void setStreamType(int streamType) {}
-    int getChannels() override { return 6; }  // fake. need refactor this class
-    int getFreq() override { return 48000; }  // fake. need refactor this class
+    static void setStreamType(int streamType) {}
+    uint8_t getChannels() override { return 6; }  // fake. need refactor this class
+    int getFreq() override { return 48000; }      // fake. need refactor this class
    private:
     bool m_firstFrame;
     int m_big_offsets;
@@ -39,7 +36,5 @@ class DVBSubStreamReader : public SimplePacketizerReader
     int64_t m_frameDuration;
     int intDecodeFrame(uint8_t* buff, uint8_t* end);
 };
-
-#endif
 
 #endif

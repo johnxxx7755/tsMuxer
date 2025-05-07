@@ -1,13 +1,12 @@
 #include "blurayHelper.h"
 
 #include <fs/directory.h>
-
+#include <fs/systemlog.h>
 #include <array>
 
-//#include "hevc.h"
 #include "iso_writer.h"
 #include "muxerManager.h"
-#include "psgStreamReader.h"
+#include "pgsStreamReader.h"
 #include "tsMuxer.h"
 
 using namespace std;
@@ -54,8 +53,8 @@ void push_back_raw(std::vector<std::uint8_t>& byteVector, const Container& c, st
 template <typename PODType>
 void push_back_raw(std::vector<std::uint8_t>& byteVector, const PODType& value, std::true_type)
 {
-    auto start = reinterpret_cast<const std::uint8_t*>(&value);
-    auto finish = start + sizeof(value);
+    const auto start = reinterpret_cast<const std::uint8_t*>(&value);
+    const auto finish = start + sizeof(value);
     std::copy(start, finish, std::back_inserter(byteVector));
 }
 template <typename T>
@@ -70,7 +69,8 @@ struct MovieObject
     bool resumeIntentionFlag = true;
     bool menuCallMask = false;
     bool titleSearchMask = false;
-    std::vector<std::uint8_t> serialize() const
+
+    [[nodiscard]] std::vector<std::uint8_t> serialize() const
     {
         std::uint16_t flags = 0;
         flags |= (resumeIntentionFlag << 15);
@@ -90,11 +90,12 @@ struct MovieObject
         }
         return rv;
     }
-    size_t serializedSize() const
+
+    [[nodiscard]] size_t serializedSize() const
     {
         const auto numOfNavCommands = static_cast<std::uint16_t>(navigationCommands.size());
         return (2 * sizeof(std::uint16_t)) /* flags + numOfNavCommands */
-               + (numOfNavCommands * std::tuple_size<decltype(navigationCommands)::value_type>::value);
+               + (numOfNavCommands * std::tuple_size_v<decltype(navigationCommands)::value_type>);
     }
 };
 enum class BDMV_VersionNumber
@@ -103,43 +104,39 @@ enum class BDMV_VersionNumber
     Version2,
     Version3
 };
-std::array<std::uint8_t, 4> getBDMV_VersionNumber(BDMV_VersionNumber version)
+std::array<std::uint8_t, 4> getBDMV_VersionNumber(const BDMV_VersionNumber version)
 {
     std::array<std::uint8_t, 4> rv = {0x30, 0x31, 0x30, 0x30};  // "0100"
     switch (version)
     {
-    case BDMV_VersionNumber::Version1:
-        return rv;
     case BDMV_VersionNumber::Version2:
         rv[1] = 0x32;
         return rv;
     case BDMV_VersionNumber::Version3:
         rv[1] = 0x33;
         return rv;
-    // avoid compiler warning: control reaches end of non-void function
     default:
-        assert(0);
         return rv;
     }
 }
-std::vector<std::uint8_t> makeBdMovieObjectData(BDMV_VersionNumber version,
+std::vector<std::uint8_t> makeBdMovieObjectData(const BDMV_VersionNumber version,
                                                 const std::vector<MovieObject>& movieObjects)
 {
-    const std::array<std::uint8_t, 4> type_indicator = {0x4D, 0x4F, 0x42, 0x4A};  // "MOBJ"
+    constexpr std::array<std::uint8_t, 4> type_indicator = {0x4D, 0x4F, 0x42, 0x4A};  // "MOBJ"
     const auto version_number = getBDMV_VersionNumber(version);
-    const std::uint32_t extension_data_start_addr = 0;
-    const std::uint32_t reserved_after_length = 0;
-    const auto header_reserved_bytes = 28u;
+    constexpr std::uint32_t extension_data_start_addr = 0;
+    constexpr std::uint32_t reserved_after_length = 0;
+    constexpr auto header_reserved_bytes = 28u;
 
     std::vector<std::uint8_t> rv;
     const auto num_movie_objects = static_cast<std::uint16_t>(movieObjects.size());
     auto payload_length = static_cast<std::uint32_t>(sizeof(reserved_after_length) + sizeof(num_movie_objects));
-    const auto header_size = type_indicator.size() + version_number.size() + sizeof(extension_data_start_addr) +
-                             header_reserved_bytes + sizeof(payload_length);
+    constexpr auto header_size = type_indicator.size() + version_number.size() + sizeof(extension_data_start_addr) +
+                                 header_reserved_bytes + sizeof(payload_length);
 
     for (auto&& movieObj : movieObjects)
     {
-        payload_length += (uint32_t)movieObj.serializedSize();
+        payload_length += static_cast<uint32_t>(movieObj.serializedSize());
     }
 
     rv.reserve(header_size + payload_length);
@@ -179,7 +176,8 @@ NavigationCommand makeNoBlankCommand()
     return {0x50, 0x40, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 }
 
-NavigationCommand makeDefaultTrackCommand(int audioTrackIdx, int subTrackIdx, MuxerManager::SubTrackMode subTrackMode)
+NavigationCommand makeDefaultTrackCommand(int audioTrackIdx, int subTrackIdx,
+                                          const MuxerManager::SubTrackMode subTrackMode)
 {
     NavigationCommand cmd = {0x51, 0xC0, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     if (audioTrackIdx >= 0)
@@ -206,7 +204,7 @@ NavigationCommand makeDefaultTrackCommand(int audioTrackIdx, int subTrackIdx, Mu
 }
 
 bool writeBdMovieObjectData(const MuxerManager& muxer, AbstractOutputStream* file, const std::string& prefix,
-                            DiskType diskType, bool usedBlankPL, int mplsNum, int blankNum)
+                            const DiskType diskType, const bool usedBlankPL, const int mplsNum, const int blankNum)
 {
     std::vector<MovieObject> movieObjects = {
         {{{0x50, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00},
@@ -234,16 +232,16 @@ bool writeBdMovieObjectData(const MuxerManager& muxer, AbstractOutputStream* fil
     {
         num = isV3() ? BDMV_VersionNumber::Version3 : BDMV_VersionNumber::Version2;
     }
-    auto defaultAudioIdx = muxer.getDefaultAudioTrackIdx();
+    const auto defaultAudioIdx = muxer.getDefaultAudioTrackIdx();
     MuxerManager::SubTrackMode mode;
-    auto defaultSubIdx = muxer.getDefaultSubTrackIdx(mode);
+    const auto defaultSubIdx = muxer.getDefaultSubTrackIdx(mode);
     if (defaultAudioIdx != -1 || defaultSubIdx != -1)
     {
         auto&& navCmds = movieObjects[0].navigationCommands;
         movieObjects[0].navigationCommands.insert(std::begin(navCmds) + 2,
                                                   makeDefaultTrackCommand(defaultAudioIdx, defaultSubIdx, mode));
     }
-    auto objectData = makeBdMovieObjectData(num, movieObjects);
+    const auto objectData = makeBdMovieObjectData(num, movieObjects);
     if (!file->open((prefix + "BDMV/MovieObject.bdmv").c_str(), File::ofWrite))
     {
         delete file;
@@ -266,7 +264,7 @@ bool writeBdMovieObjectData(const MuxerManager& muxer, AbstractOutputStream* fil
 
 // ------------------------- BlurayHelper ---------------------------
 
-BlurayHelper::BlurayHelper() : m_dt(), m_isoWriter(0) {}
+BlurayHelper::BlurayHelper() : m_dt(), m_isoWriter(nullptr) {}
 
 BlurayHelper::~BlurayHelper() { close(); }
 
@@ -276,12 +274,12 @@ void BlurayHelper::close()
     {
         LTRACE(LT_INFO, 2, "Finalize ISO disk");
         delete m_isoWriter;
-        m_isoWriter = 0;
+        m_isoWriter = nullptr;
     }
 }
 
-bool BlurayHelper::open(const string& dst, DiskType dt, int64_t diskSize, int extraISOBlocks,
-                        bool useReproducibleIsoHeader)
+bool BlurayHelper::open(const string& dst, const DiskType dt, const int64_t diskSize, const int extraISOBlocks,
+                        const bool useReproducibleIsoHeader)
 {
     m_dstPath = toNativeSeparators(dst);
 
@@ -294,14 +292,11 @@ bool BlurayHelper::open(const string& dst, DiskType dt, int64_t diskSize, int ex
         m_isoWriter->setLayerBreakPoint(0xBA7200);  // around 25Gb
         return m_isoWriter->open(m_dstPath, diskSize, extraISOBlocks);
     }
-    else
-    {
-        m_dstPath = closeDirPath(m_dstPath, getDirSeparator());
-        return true;
-    }
+    m_dstPath = closeDirPath(m_dstPath, getDirSeparator());
+    return true;
 }
 
-bool BlurayHelper::createBluRayDirs()
+void BlurayHelper::createBluRayDirs() const
 {
     if (m_dt == DiskType::BLURAY)
     {
@@ -311,6 +306,7 @@ bool BlurayHelper::createBluRayDirs()
             m_isoWriter->createDir("BDMV/BDJO");
             m_isoWriter->createDir("BDMV/JAR");
             m_isoWriter->createDir("BDMV/BACKUP/BDJO");
+            m_isoWriter->createDir("BDMV/BACKUP/JAR");
         }
         else
         {
@@ -318,6 +314,7 @@ bool BlurayHelper::createBluRayDirs()
             createDir(m_dstPath + toNativeSeparators("BDMV/BDJO"), true);
             createDir(m_dstPath + toNativeSeparators("BDMV/JAR"), true);
             createDir(m_dstPath + toNativeSeparators("BDMV/BACKUP/BDJO"), true);
+            createDir(m_dstPath + toNativeSeparators("BDMV/BACKUP/JAR"), true);
         }
     }
 
@@ -343,22 +340,19 @@ bool BlurayHelper::createBluRayDirs()
         createDir(m_dstPath + toNativeSeparators("BDMV/BACKUP/CLIPINF"), true);
         createDir(m_dstPath + toNativeSeparators("BDMV/BACKUP/PLAYLIST"), true);
     }
-
-    return true;
 }
 
-bool BlurayHelper::writeBluRayFiles(const MuxerManager& muxer, bool usedBlankPL, int mplsNum, int blankNum,
-                                    bool stereoMode)
+bool BlurayHelper::writeBluRayFiles(const MuxerManager& muxer, const bool usedBlankPL, const int mplsNum,
+                                    const int blankNum, const bool stereoMode) const
 {
     int fileSize = sizeof(bdIndexData);
-    string prefix = m_isoWriter ? "" : m_dstPath;
+    const string prefix = m_isoWriter ? "" : m_dstPath;
     AbstractOutputStream* file;
     if (m_isoWriter)
         file = m_isoWriter->createFile();
     else
         file = new File();
 
-    uint8_t* V3metaData;
     if (m_dt == DiskType::BLURAY)
     {
         if (isV3())
@@ -366,23 +360,25 @@ bool BlurayHelper::writeBluRayFiles(const MuxerManager& muxer, bool usedBlankPL,
             bdIndexData[5] = '3';
             fileSize = 0x9C;         // add 36 bytes for UHD data extension
             bdIndexData[15] = 0x78;  // start address of UHD data extension
-            V3metaData = bdIndexData + 0x78;
+
             // UHD data extension
-            memcpy(V3metaData,
-                   "\x00\x00\x00\x20\x00\x00\x00\x18\x00\x00\x00\x01"
-                   "\x00\x03\x00\x01\x00\x00\x00\x18\x00\x00\x00\x0C"
-                   "\x00\x00\x00\x08\x20\x00\x00\x00\x00\x00\x00\x00",
-                   36);
+            uint8_t* V3metaData = bdIndexData + 0x78;
+            static constexpr char metaData[37] =
+                "\x00\x00\x00\x20\x00\x00\x00\x18\x00\x00\x00\x01"
+                "\x00\x03\x00\x01\x00\x00\x00\x18\x00\x00\x00\x0C"
+                "\x00\x00\x00\x08\x20\x00\x00\x00\x00\x00\x00\x00";
+            for (int i = 0; i < 36; i++) V3metaData[i] = metaData[i];
+
             // 4K => 66/100 GB Disk, 109 MB/s Recording_Rate
             if (is4K())
                 bdIndexData[0x94] = 0x51;
+            // include HDR flags
+            bdIndexData[0x96] = (V3_flags & 0x1e);
             // no HDR10 detected => SDR flag
-            if (!(V3_flags & 0x1e))
-                V3_flags |= SDR;
-            // include V3 flags
-            bdIndexData[0x96] = (V3_flags & 0x1f);
+            if (bdIndexData[0x96] == 0)
+                bdIndexData[0x96] = 1;
         }
-        else  // V2
+        else  // V2 Blu-ray
         {
             bdIndexData[5] = '2';
             fileSize = 0x78;
@@ -414,16 +410,18 @@ bool BlurayHelper::writeBluRayFiles(const MuxerManager& muxer, bool usedBlankPL,
     return writeBdMovieObjectData(muxer, file, prefix, m_dt, usedBlankPL, mplsNum, blankNum);
 }
 
-bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog)
+bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog) const
 {
-    static const int CLPI_BUFFER_SIZE = 1024 * 1024;
+    static constexpr int CLPI_BUFFER_SIZE = 1024 * 1024;
     auto clpiBuffer = new uint8_t[CLPI_BUFFER_SIZE];
     CLPIParser clpiParser;
     string version_number;
-    if (m_dt == DiskType::BLURAY)
-        memcpy(&clpiParser.version_number, isV3() ? "0300" : "0200", 5);
-    else
-        memcpy(&clpiParser.version_number, "0100", 5);
+    clpiParser.version_number[0] = '0';
+    clpiParser.version_number[1] = m_dt == DiskType::BLURAY ? (isV3() ? '3' : '2') : '1';
+    clpiParser.version_number[2] = '0';
+    clpiParser.version_number[3] = '0';
+    clpiParser.version_number[4] = 0;
+
     clpiParser.clip_stream_type = 1;  // AV stream
     clpiParser.isDependStream = muxer->isSubStream();
     if (clpiParser.isDependStream)
@@ -444,9 +442,9 @@ bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog)
     }
 
     PIDListMap pidList = muxer->getPidList();
-    for (PIDListMap::const_iterator itr = pidList.begin(); itr != pidList.end(); ++itr)
+    for (const auto& [pid, si] : pidList)
     {
-        CLPIStreamInfo streamInfo(itr->second);
+        CLPIStreamInfo streamInfo(si);
         clpiParser.m_streamInfo.insert(make_pair(streamInfo.streamPID, streamInfo));
     }
     vector<uint32_t> packetCount = muxer->getMuxedPacketCnt();
@@ -469,8 +467,8 @@ bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog)
         }
 
         clpiParser.number_of_source_packets = packetCount[i];
-        clpiParser.presentation_start_time = (uint32_t)(firstPts[i] / 2);
-        clpiParser.presentation_end_time = (uint32_t)(lastPts[i] / 2);
+        clpiParser.presentation_start_time = static_cast<uint32_t>(firstPts[i] / 2);
+        clpiParser.presentation_end_time = static_cast<uint32_t>(lastPts[i] / 2);
         clpiParser.m_clpiNum = i;
 
         int fileLen = clpiParser.compose(clpiBuffer, CLPI_BUFFER_SIZE);
@@ -484,7 +482,7 @@ bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog)
 
         string dstDir = string("BDMV") + getDirSeparator() + string("CLIPINF") + getDirSeparator();
         string clipName = extractFileName(muxer->getFileNameByIdx(i));
-        if (!file->open((prefix + dstDir + clipName + string(".clpi")).c_str(), File::ofWrite))
+        if (!file->open((prefix + dstDir + clipName + ".clpi").c_str(), File::ofWrite))
         {
             delete[] clpiBuffer;
             delete file;
@@ -501,7 +499,7 @@ bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog)
 
         dstDir = string("BDMV") + getDirSeparator() + string("BACKUP") + getDirSeparator() + string("CLIPINF") +
                  getDirSeparator();
-        if (!file->open((prefix + dstDir + clipName + string(".clpi")).c_str(), File::ofWrite))
+        if (!file->open((prefix + dstDir + clipName + ".clpi").c_str(), File::ofWrite))
         {
             delete[] clpiBuffer;
             delete file;
@@ -521,19 +519,20 @@ bool BlurayHelper::createCLPIFile(TSMuxer* muxer, int clpiNum, bool doLog)
     return true;
 }
 
-const PMTStreamInfo* streamByIndex(int index, const PIDListMap& pidList)
+const PMTStreamInfo* streamByIndex(const int index, const PIDListMap& pidList)
 {
-    for (auto itr = pidList.begin(); itr != pidList.end(); ++itr)
+    for (const auto& [pid, si] : pidList)
     {
-        const PMTStreamInfo& stream = itr->second;
+        const PMTStreamInfo& stream = si;
         if (stream.m_codecReader->getStreamIndex() == index)
             return &stream;
     }
-    return 0;
+    return nullptr;
 }
 
 bool BlurayHelper::createMPLSFile(TSMuxer* mainMuxer, TSMuxer* subMuxer, int autoChapterLen,
-                                  vector<double> customChapters, DiskType dt, int mplsOffset, bool isMvcBaseViewR)
+                                  const vector<double>& customChapters, DiskType dt, int mplsOffset,
+                                  bool isMvcBaseViewR) const
 {
     int64_t firstPts = *(mainMuxer->getFirstPts().begin());
     int64_t lastPts = *(mainMuxer->getLastPts().rbegin());
@@ -544,11 +543,11 @@ bool BlurayHelper::createMPLSFile(TSMuxer* mainMuxer, TSMuxer* subMuxer, int aut
     mplsParser.m_m2tsOffset = mainMuxer->getFirstFileNum();
     mplsParser.PlayList_playback_type = 1;
     mplsParser.ref_to_STC_id = 0;
-    mplsParser.IN_time = (uint32_t)(firstPts / 2);
-    mplsParser.OUT_time = (uint32_t)(lastPts / 2);
+    mplsParser.IN_time = static_cast<uint32_t>(firstPts / 2);
+    mplsParser.OUT_time = static_cast<uint32_t>(lastPts / 2);
     mplsParser.mvc_base_view_r = isMvcBaseViewR;
 
-    if (customChapters.size() == 0)
+    if (customChapters.empty())
     {
         mplsParser.m_chapterLen = autoChapterLen;
     }
@@ -556,9 +555,9 @@ bool BlurayHelper::createMPLSFile(TSMuxer* mainMuxer, TSMuxer* subMuxer, int aut
     {
         for (auto& i : customChapters)
         {
-            auto mark = (uint32_t)(i * 45000.0);
-            if (mark >= 0 && mark <= (mplsParser.OUT_time - mplsParser.IN_time))
-                mplsParser.m_marks.push_back(PlayListMark(-1, mark + mplsParser.IN_time));
+            auto mark = static_cast<uint32_t>(i * 45000.0);
+            if (mark <= (mplsParser.OUT_time - mplsParser.IN_time))
+                mplsParser.m_marks.emplace_back(-1, mark + mplsParser.IN_time);
         }
     }
     mplsParser.PlayItem_random_access_flag = false;
@@ -567,11 +566,11 @@ bool BlurayHelper::createMPLSFile(TSMuxer* mainMuxer, TSMuxer* subMuxer, int aut
     if (subMuxer)
         pidListMVC = subMuxer->getPidList();
 
-    for (PIDListMap::const_iterator itr = pidList.begin(); itr != pidList.end(); ++itr)
+    for (auto& [index, si] : pidList)
     {
-        mplsParser.m_streamInfo.push_back(MPLSStreamInfo(itr->second));
-        MPLSStreamInfo& info = *(mplsParser.m_streamInfo.rbegin());
-        auto pgStream = dynamic_cast<PGSStreamReader*>(itr->second.m_codecReader);
+        mplsParser.m_streamInfo.emplace_back(si);
+        MPLSStreamInfo& info = *mplsParser.m_streamInfo.rbegin();
+        auto pgStream = dynamic_cast<PGSStreamReader*>(si.m_codecReader);
         if (pgStream)
         {
             info.offsetId = pgStream->getOffsetId();
@@ -612,9 +611,9 @@ bool BlurayHelper::createMPLSFile(TSMuxer* mainMuxer, TSMuxer* subMuxer, int aut
     if (subMuxer)
     {
         mplsParser.isDependStreamExist = true;
-        for (PIDListMap::const_iterator itr = pidListMVC.begin(); itr != pidListMVC.end(); ++itr)
+        for (const auto& [pid, si] : pidListMVC)
         {
-            MPLSStreamInfo data(itr->second);
+            MPLSStreamInfo data(si);
             data.type = 2;  // Identify an elementary stream of the Clip used by a SubPath with SubPath_type set to
                             // 2,3,4,5,6,8 or 9
             mplsParser.m_streamInfoMVC.push_back(data);
@@ -677,18 +676,18 @@ bool BlurayHelper::createMPLSFile(TSMuxer* mainMuxer, TSMuxer* subMuxer, int aut
     return true;
 }
 
-string BlurayHelper::m2tsFileName(int num)
+string BlurayHelper::m2tsFileName(const int num) const
 {
-    string prefix = m_isoWriter ? "" : m_dstPath;
-    char separator = m_isoWriter ? '/' : getDirSeparator();
+    const string prefix = m_isoWriter ? "" : m_dstPath;
+    const char separator = m_isoWriter ? '/' : getDirSeparator();
     return prefix + string("BDMV") + separator + string("STREAM") + separator + strPadLeft(int32ToStr(num), 5, '0') +
            string(".m2ts");
 }
 
-string BlurayHelper::ssifFileName(int num)
+string BlurayHelper::ssifFileName(const int num) const
 {
-    string prefix = m_isoWriter ? "" : m_dstPath;
-    char separator = m_isoWriter ? '/' : getDirSeparator();
+    const string prefix = m_isoWriter ? "" : m_dstPath;
+    const char separator = m_isoWriter ? '/' : getDirSeparator();
     return prefix + string("BDMV") + separator + string("STREAM") + separator + string("SSIF") + separator +
            strPadLeft(int32ToStr(num), 5, '0') + string(".ssif");
 }
@@ -699,13 +698,12 @@ AbstractOutputStream* BlurayHelper::createFile()
 {
     if (m_isoWriter)
         return m_isoWriter->createFile();
-    else
-        return new File();
+    return new File();
 }
 
-bool BlurayHelper::isVirtualFS() const { return m_isoWriter != 0; }
+bool BlurayHelper::isVirtualFS() const { return m_isoWriter != nullptr; }
 
-void BlurayHelper::setVolumeLabel(const std::string& label)
+void BlurayHelper::setVolumeLabel(const std::string& label) const
 {
     if (m_isoWriter)
         m_isoWriter->setVolumeLabel(unquoteStr(label));

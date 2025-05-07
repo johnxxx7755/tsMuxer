@@ -7,15 +7,16 @@
 
 using namespace std;
 
-static const uint32_t LPCM_FREQS[4] = {48000, 96000, 44100, 32000};
+static constexpr int LPCM_FREQS[4] = {48000, 96000, 44100, 32000};
 
-//#define min(a,b) a<=b?a:b
+// #define min(a,b) a<=b?a:b
 
-ProgramStreamDemuxer::ProgramStreamDemuxer(const BufferedReaderManager& readManager) : m_readManager(readManager)
+ProgramStreamDemuxer::ProgramStreamDemuxer(const BufferedReaderManager& readManager)
+    : m_tmpBuffer{}, m_readManager(readManager), m_dataProcessed(0)
 {
     memset(m_psm_es_type, 0, sizeof(m_psm_es_type));
     memset(m_lpcpHeaderAdded, 0, sizeof(m_lpcpHeaderAdded));
-    m_bufferedReader = (const_cast<BufferedReaderManager&>(m_readManager)).getReader(m_streamName.c_str());
+    m_bufferedReader = m_readManager.getReader(m_streamName.c_str());
     m_readerID = m_bufferedReader->createReader(MAX_PES_HEADER_SIZE);
     m_lastReadRez = 0;
     m_lastPesLen = 0;
@@ -27,18 +28,18 @@ ProgramStreamDemuxer::ProgramStreamDemuxer(const BufferedReaderManager& readMana
 
 void ProgramStreamDemuxer::setFileIterator(FileNameIterator* itr)
 {
-    auto br = dynamic_cast<BufferedReader*>(m_bufferedReader);
+    const auto br = dynamic_cast<BufferedReader*>(m_bufferedReader);
     if (br)
         br->setFileIterator(itr, m_readerID);
-    else if (itr != 0)
-        THROW(ERR_COMMON, "Can not set file iterator. Reader does not support bufferedReader interface.");
+    else if (itr != nullptr)
+        THROW(ERR_COMMON, "Can not set file iterator. Reader does not support bufferedReader interface.")
 }
 
 ProgramStreamDemuxer::~ProgramStreamDemuxer() { m_bufferedReader->deleteReader(m_readerID); }
 
 void ProgramStreamDemuxer::readClose() {}
 
-uint64_t ProgramStreamDemuxer::getDemuxedSize() { return m_dataProcessed; }
+int64_t ProgramStreamDemuxer::getDemuxedSize() { return m_dataProcessed; }
 
 void ProgramStreamDemuxer::openFile(const std::string& streamName)
 {
@@ -46,39 +47,39 @@ void ProgramStreamDemuxer::openFile(const std::string& streamName)
     readClose();
     // BufferedFileReader* fileReader = dynamic_cast <BufferedFileReader*> (m_bufferedReader);
     if (!m_bufferedReader->openStream(m_readerID, m_streamName.c_str()))
-        THROW(ERR_FILE_NOT_FOUND, "Can't open stream " << m_streamName);
+        THROW(ERR_FILE_NOT_FOUND, "Can't open stream " << m_streamName)
     m_dataProcessed = 0;
 }
 
-int ProgramStreamDemuxer::mpegps_psm_parse(uint8_t* buff, uint8_t* end)
+int ProgramStreamDemuxer::mpegps_psm_parse(const uint8_t* buff, const uint8_t* end)
 {
     if (end - buff < 7)
         return -1;
-    uint8_t* curBuff = buff + 4;
+    const uint8_t* curBuff = buff + 4;
     // int map_stream_id = *curBuff++;
-    int psm_length = (*curBuff << 8) + curBuff[1];
+    const int psm_length = (*curBuff << 8) + curBuff[1];
     if (psm_length > MAX_PES_HEADER_SIZE)
     {
         THROW(ERR_COMMON,
-              "Can't parse Program Stream Map. Too large size " << psm_length << ". Max allowed size 1018 bytes.");
+              "Can't parse Program Stream Map. Too large size " << psm_length << ". Max allowed size 1018 bytes.")
     }
     if (end - buff < psm_length + 7)
         return -1;
 
     curBuff += 4;
-    int ps_info_length = (*curBuff << 8) + curBuff[1];
+    const int ps_info_length = (*curBuff << 8) + curBuff[1];
     curBuff += ps_info_length + 2;
     int es_map_length = (*curBuff << 8) + curBuff[1];
     curBuff += 2;
     /* at least one es available? */
     while (es_map_length >= 4)
     {
-        unsigned char type = *curBuff++;
-        unsigned char es_id = *curBuff++;
+        const unsigned char type = *curBuff++;
+        const unsigned char es_id = *curBuff++;
         /* remember mapping from stream id to stream type */
         m_psm_es_type[es_id] = type;
         /* skip program_stream_info */
-        uint16_t es_info_length = (*curBuff << 8) + curBuff[1];
+        const int es_info_length = *curBuff << 8 | curBuff[1];
         curBuff += 2;
         curBuff += es_info_length;
         es_map_length -= 4 + es_info_length;
@@ -86,12 +87,12 @@ int ProgramStreamDemuxer::mpegps_psm_parse(uint8_t* buff, uint8_t* end)
     return 6 + psm_length;
 }
 
-uint8_t ProgramStreamDemuxer::processPES(uint8_t* buff, uint8_t* end, int& afterPesHeader)
+int ProgramStreamDemuxer::processPES(uint8_t* buff, uint8_t* end, int& afterPesHeader)
 {
     afterPesHeader = 0;
 
-    auto pesPacket = (PESPacket*)buff;
-    uint8_t startcode = buff[3];
+    const auto pesPacket = reinterpret_cast<PESPacket*>(buff);
+    int startcode = buff[3];
 
     // find matching stream
     if (!((startcode >= 0xc0 && startcode <= 0xef) /* audio or video */ || (startcode == PES_PRIVATE_DATA1) ||
@@ -103,24 +104,24 @@ uint8_t ProgramStreamDemuxer::processPES(uint8_t* buff, uint8_t* end, int& after
         curBuf += 10;
     else if ((pesPacket->flagsLo & 0xc0) == 0x80)  // PTS only
         curBuf += 5;
-    if ((pesPacket->flagsLo & 0x20))  // ESCR_flag
+    if (pesPacket->flagsLo & 0x20)  // ESCR_flag
         curBuf += 6;
-    if ((pesPacket->flagsLo & 0x10))  // ES_rate_flag
+    if (pesPacket->flagsLo & 0x10)  // ES_rate_flag
         curBuf += 3;
-    if ((pesPacket->flagsLo & 0x08))  // DSM_trick_mode_flag
+    if (pesPacket->flagsLo & 0x08)  // DSM_trick_mode_flag
         curBuf++;
-    if ((pesPacket->flagsLo & 0x04))  // additional_copy_info_flag
+    if (pesPacket->flagsLo & 0x04)  // additional_copy_info_flag
         curBuf++;
     if (pesPacket->flagsLo & 0x02)  // PES_CRC_flag
         curBuf += 2;
     if (pesPacket->flagsLo & 0x01)  // PES_extension_flag
     {
-        uint8_t extFlag = *curBuf++;
+        const uint8_t extFlag = *curBuf++;
         if (extFlag & 0x80)  // PES_private_data_flag
             curBuf += 16;
         if (extFlag & 0x40)  // pack_header_field_flag
         {
-            int pack_field_length = *curBuf++;
+            const int pack_field_length = *curBuf++;
             curBuf += pack_field_length;
         }
         if (extFlag & 0x20)  // program_packet_sequence_counter_flag
@@ -129,10 +130,9 @@ uint8_t ProgramStreamDemuxer::processPES(uint8_t* buff, uint8_t* end, int& after
             curBuf += 2;
         if (extFlag & 0x01)  // PES_extension_flag_2
         {
-            int ext2_len = *curBuf++ & 0x7f;  // PES_extension_field_length
+            const int ext2_len = *curBuf++ & 0x7f;  // PES_extension_field_length
             if (ext2_len > 0)
-                startcode = (startcode << 8) + *curBuf;
-            curBuf += ext2_len;
+                startcode = startcode << 8 | *curBuf;
         }
     }
     curBuf = buff + pesPacket->getHeaderLength();
@@ -148,19 +148,19 @@ uint8_t ProgramStreamDemuxer::processPES(uint8_t* buff, uint8_t* end, int& after
 
             MemoryBlock& waveHeader = m_lpcmWaveHeader[startcode - 0xa0];
 
-            int bitdepth = 16 + (curBuf[4] >> 6 & 3) * 4;
+            const uint16_t bitdepth = 16 + (curBuf[4] >> 6 & 3) * 4;
 
             if (waveHeader.isEmpty())
             {
-                int samplerate = LPCM_FREQS[curBuf[4] >> 4 & 3];
-                int channels = 1 + (curBuf[4] & 7);
+                const int samplerate = LPCM_FREQS[curBuf[4] >> 4 & 3];
+                const uint16_t channels = 1 + (curBuf[4] & 7);
                 wave_format::buildWaveHeader(waveHeader, samplerate, channels, channels >= 6, bitdepth);
             }
 
             afterPesHeader += 6;
 
             uint8_t* payloadData = curBuf + afterPesHeader - 1;
-            uint32_t pesPayloadLen = pesPacket->getPacketLength() - pesPacket->getHeaderLength() - afterPesHeader;
+            const int pesPayloadLen = pesPacket->getPacketLength() - pesPacket->getHeaderLength() - afterPesHeader;
             wave_format::toLittleEndian(payloadData, payloadData, pesPayloadLen, bitdepth);
         }
         else if (startcode >= 0x80 && startcode <= 0xcf)
@@ -173,26 +173,25 @@ uint8_t ProgramStreamDemuxer::processPES(uint8_t* buff, uint8_t* end, int& after
     return startcode;
 }
 
-void ProgramStreamDemuxer::getTrackList(std::map<uint32_t, TrackInfo>& trackList)
+void ProgramStreamDemuxer::getTrackList(std::map<int32_t, TrackInfo>& trackList)
 {
     for (int i = 0x20; i < 0xff; i++)
     {
         if (i >= 0xa0 && i <= 0xaf)
-            trackList[i] = TrackInfo((int)StreamType::AUDIO_LPCM, "", 0);  // set track hint
+            trackList[i] = TrackInfo(static_cast<int>(StreamType::AUDIO_LPCM), "", 0);  // set track hint
         else
             trackList[i] = TrackInfo(0, "", 0);  // autodetect
     }
-    return;
 }
 
-bool ProgramStreamDemuxer::isVideoPID(uint32_t pid)
+bool ProgramStreamDemuxer::isVideoPID(const uint32_t pid) const
 {
     return (pid >= 0x55 && pid <= 0x5f) ||  // vc1
            (pid >= 0xe0 && pid <= 0xef) ||  // mpeg video
-           m_psm_es_type[pid & 0xff] == (int)StreamType::VIDEO_H264 ||
-           m_psm_es_type[pid & 0xff] == (int)StreamType::VIDEO_MVC ||
-           m_psm_es_type[pid & 0xff] == (int)StreamType::VIDEO_H265 ||
-           m_psm_es_type[pid & 0xff] == (int)StreamType::VIDEO_H266;
+           m_psm_es_type[pid & 0xff] == static_cast<int>(StreamType::VIDEO_H264) ||
+           m_psm_es_type[pid & 0xff] == static_cast<int>(StreamType::VIDEO_MVC) ||
+           m_psm_es_type[pid & 0xff] == static_cast<int>(StreamType::VIDEO_H265) ||
+           m_psm_es_type[pid & 0xff] == static_cast<int>(StreamType::VIDEO_H266);
 }
 
 int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSet& acceptedPIDs, int64_t& discardSize)
@@ -230,7 +229,7 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
 
     if (m_lastPesLen > 0)
     {
-        int copyLen = FFMIN(readedBytes, m_lastPesLen);
+        const int copyLen = FFMIN(readedBytes, m_lastPesLen);
         if (m_lastPID > 0)
         {
             StreamData& vect = demuxedData[m_lastPID];
@@ -245,19 +244,18 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
         {
             if (readedBytes > 0)
                 return 0;
-            else
-                return BufferedReader::DATA_EOF;
+            return BufferedReader::DATA_EOF;
         }
     }
 
-    uint8_t* prevBuf = curBuf;
+    const uint8_t* prevBuf = curBuf;
     curBuf = MPEGHeader::findNextMarker(curBuf, end);
     discardSize += curBuf - prevBuf;
 
     while (curBuf <= end - 9)
     {
-        auto pesPacket = (PESPacket*)curBuf;
-        uint8_t startcode = curBuf[3];
+        const auto pesPacket = reinterpret_cast<PESPacket*>(curBuf);
+        int startcode = curBuf[3];
         if ((startcode >= 0xc0 && startcode <= 0xef) || (startcode == PES_PRIVATE_DATA1) || (startcode == PES_VC1_ID) ||
             (startcode == PES_PRIVATE_DATA2))
         {
@@ -269,29 +267,31 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
             {
                 if ((pesPacket->flagsLo & 0x80) == 0x80)
                 {
-                    int64_t curPts = pesPacket->getPts();
+                    const int64_t curPts = pesPacket->getPts();
                     if (m_firstPTS == -1 || curPts < m_firstPTS)
                         m_firstPTS = curPts;
                     if (isVideoPID(startcode) && (m_firstVideoPTS == -1 || curPts < m_firstVideoPTS))
                         m_firstVideoPTS = curPts;
-                    if (m_firstPtsTime.find(startcode) == m_firstPtsTime.end())
-                        m_firstPtsTime[startcode] = curPts;
-                    else if (curPts < m_firstPtsTime[startcode])
+                    if (m_firstPtsTime.find(startcode) == m_firstPtsTime.end() || curPts < m_firstPtsTime[startcode])
                         m_firstPtsTime[startcode] = curPts;
                 }
 
                 StreamData& vect = demuxedData[startcode];
 
-                int idx = startcode - 0xa0;
+                const int idx = startcode - 0xa0;
                 if (idx >= 0 && idx <= 15 && !m_lpcpHeaderAdded[idx])
                 {
                     vect.append(m_lpcmWaveHeader[idx].data(), m_lpcmWaveHeader[idx].size());
                     m_lpcpHeaderAdded[idx] = true;
                 }
 
-                uint8_t* payloadData = curBuf + pesPacket->getHeaderLength() + afterPesHeader;
-                int pesPayloadLen = pesPacket->getPacketLength() - pesPacket->getHeaderLength() - afterPesHeader;
-                int copyLen = FFMIN(pesPayloadLen, (int)(end - payloadData));
+                const uint8_t* payloadData = curBuf + pesPacket->getHeaderLength() + afterPesHeader;
+                const int pesPayloadLen = pesPacket->getPacketLength() - pesPacket->getHeaderLength() - afterPesHeader;
+                const int copyLen = FFMIN(pesPayloadLen, (int)(end - payloadData));
+                if (copyLen < 0)
+                {
+                    THROW(ERR_COMMON, "Invalid copyLen")
+                }
                 vect.append(payloadData, copyLen);
                 m_dataProcessed += copyLen;
                 discardSize += payloadData - curBuf;
@@ -305,12 +305,12 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
             }
             else
             {
-                int tmpLen = pesPacket->getPacketLength();
+                const int tmpLen = pesPacket->getPacketLength();
                 if (tmpLen > end - curBuf)
                 {
                     discardSize += end - curBuf;
                     m_lastPID = 0;
-                    m_lastPesLen = tmpLen - (int)(end - curBuf);
+                    m_lastPesLen = tmpLen - static_cast<int>(end - curBuf);
                     return 0;
                 }
                 curBuf += tmpLen;
@@ -319,14 +319,14 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
         }
         else if (startcode == PES_PROGRAM_STREAM_MAP)
         {
-            int psmLen = mpegps_psm_parse(curBuf, end);
+            const int psmLen = mpegps_psm_parse(curBuf, end);
             if (psmLen == -1)
                 break;
-            else if (psmLen > end - curBuf)
+            if (psmLen > end - curBuf)
             {
                 discardSize += end - curBuf;
                 m_lastPID = 0;
-                m_lastPesLen = psmLen - (int)(end - curBuf);
+                m_lastPesLen = psmLen - static_cast<int>(end - curBuf);
                 return 0;
             }
             discardSize += psmLen;
@@ -334,7 +334,7 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
         }
         else
         {
-            int64_t rest = FFMIN(end - curBuf, 4);
+            const int64_t rest = FFMIN(end - curBuf, 4);
             curBuf += rest;
             discardSize += rest;
         }
@@ -342,17 +342,17 @@ int ProgramStreamDemuxer::simpleDemuxBlock(DemuxedData& demuxedData, const PIDSe
         curBuf = MPEGHeader::findNextMarker(curBuf, end);
         discardSize += curBuf - prevBuf;
     }
-    m_tmpBufferLen = (uint32_t)(end - curBuf);
+    m_tmpBufferLen = static_cast<uint32_t>(end - curBuf);
     if (m_tmpBufferLen > 0)
         memmove(m_tmpBuffer, curBuf, end - curBuf);
     return 0;
 }
 
-int64_t getLastPCR(File& file, int bufferSize, int64_t fileSize)
+int64_t getLastPCR(const File& file, const int bufferSize, const int64_t fileSize)
 {
     file.seek(FFMAX(0, fileSize - bufferSize), File::SeekMethod::smBegin);
-    auto tmpBuffer = new uint8_t[bufferSize];
-    int len = file.read(tmpBuffer, bufferSize);
+    const auto tmpBuffer = new uint8_t[bufferSize];
+    const int len = file.read(tmpBuffer, bufferSize);
     if (len < 1)
         return -2;
     uint8_t* curPtr = tmpBuffer;
@@ -360,10 +360,10 @@ int64_t getLastPCR(File& file, int bufferSize, int64_t fileSize)
     int64_t lastPcrVal = -1;
 
     curPtr = MPEGHeader::findNextMarker(curPtr, bufEnd);
-    while (curPtr <= bufEnd - 9)
+    while (curPtr <= bufEnd - 9 - 8)
     {
-        auto pesPacket = (PESPacket*)curPtr;
-        uint8_t startcode = curPtr[3];
+        const auto pesPacket = reinterpret_cast<PESPacket*>(curPtr);
+        const uint8_t startcode = curPtr[3];
         if ((startcode >= 0xc0 && startcode <= 0xef) || (startcode == PES_PRIVATE_DATA1) || (startcode == PES_VC1_ID) ||
             (startcode == PES_PRIVATE_DATA2))
         {
@@ -378,19 +378,19 @@ int64_t getLastPCR(File& file, int bufferSize, int64_t fileSize)
 
 int64_t getPSDuration(const char* fileName)
 {
-    int BUF_SIZE = 1024 * 256;
+    constexpr int BUF_SIZE = 1024 * 256;
 
     try
     {
-        uint64_t fileSize;
+        int64_t fileSize;
         File file(fileName, File::ofRead);
         if (!file.size(&fileSize))
             return 0;
 
-        auto tmpBuffer = new uint8_t[BUF_SIZE];
+        const auto tmpBuffer = new uint8_t[BUF_SIZE];
 
         // pcr from start of file
-        int len = file.read(tmpBuffer, BUF_SIZE);
+        const int len = file.read(tmpBuffer, BUF_SIZE);
         if (len < 1)
         {
             delete[] tmpBuffer;
@@ -402,8 +402,8 @@ int64_t getPSDuration(const char* fileName)
         curPtr = MPEGHeader::findNextMarker(curPtr, bufEnd);
         while (curPtr <= bufEnd - 9)
         {
-            auto pesPacket = (PESPacket*)curPtr;
-            uint8_t startcode = curPtr[3];
+            const auto pesPacket = reinterpret_cast<PESPacket*>(curPtr);
+            const uint8_t startcode = curPtr[3];
             if ((startcode >= 0xc0 && startcode <= 0xef) || (startcode == PES_PRIVATE_DATA1) ||
                 (startcode == PES_VC1_ID) || (startcode == PES_PRIVATE_DATA2))
             {
@@ -419,7 +419,7 @@ int64_t getPSDuration(const char* fileName)
 
         // pcr from end of file
 
-        int64_t lastPcrVal = -1;
+        int64_t lastPcrVal;
         int bufferSize = BUF_SIZE;
         do
         {

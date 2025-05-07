@@ -1,10 +1,4 @@
 #include "mlpStreamReader.h"
-
-#include <fs/systemlog.h>
-
-#include <iostream>
-
-#include "avCodecs.h"
 #include "nalUnits.h"
 #include "vodCoreException.h"
 #include "vod_common.h"
@@ -27,7 +21,7 @@ const std::string MLPStreamReader::getStreamInfo()
     str << ". ";
     str << "Peak bitrate: " << m_bitrate / 1000 << "Kbps ";
     str << "Sample Rate: " << m_samplerate / 1000 << "KHz ";
-    str << "Channels: " << m_channels;
+    str << "Channels: " << static_cast<int>(m_channels);
     return str.str();
 }
 
@@ -44,24 +38,27 @@ int MLPStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdm
 {
     // TODO: fix MLP descriptor
 
-    *dstBuff++ = (int)TSDescriptorTag::REGISTRATION;  // descriptor tag
-    *dstBuff++ = 4;                                   // descriptor length
+    *dstBuff++ = static_cast<int>(TSDescriptorTag::REGISTRATION);  // descriptor tag
+    *dstBuff++ = 4;                                                // descriptor length
     // https://smpte-ra.org/registered-mpeg-ts-ids
-    memcpy(dstBuff, "mlpa", 4);  // format_identifier
+    *dstBuff++ = 'm';
+    *dstBuff++ = 'l';
+    *dstBuff++ = 'p';
+    *dstBuff = 'a';
 
     return 6;  // total descriptor length
 }
 
 int MLPStreamReader::readPacket(AVPacket& avPacket)
 {
-    while (1)
+    while (true)
     {
-        int rez = SimplePacketizerReader::readPacket(avPacket);
+        const int rez = SimplePacketizerReader::readPacket(avPacket);
         if (rez != 0)
             return rez;
 
         // thg packet
-        avPacket.dts = avPacket.pts = m_totalTHDSamples * 1000000000ll / m_samplerate;
+        avPacket.dts = avPacket.pts = m_totalTHDSamples * INTERNAL_PTS_FREQ / m_samplerate;
 
         m_totalTHDSamples += m_samples;
         m_demuxedTHDSamples += m_samples;
@@ -75,12 +72,12 @@ int MLPStreamReader::readPacket(AVPacket& avPacket)
 
 int MLPStreamReader::flushPacket(AVPacket& avPacket)
 {
-    int rez = SimplePacketizerReader::flushPacket(avPacket);
+    const int rez = SimplePacketizerReader::flushPacket(avPacket);
     if (rez > 0)
     {
         if (!(avPacket.flags & AVPacket::PRIORITY_DATA))
             avPacket.pts = avPacket.dts =
-                m_totalTHDSamples * 1000000000ll / m_samplerate;  // replace time to a next HD packet
+                m_totalTHDSamples * INTERNAL_PTS_FREQ / m_samplerate;  // replace time to a next HD packet
     }
     return rez;
 }

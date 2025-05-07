@@ -1,12 +1,9 @@
 #include "ioContextDemuxer.h"
 
-#include <math.h>
 #include <types/types.h>
+#include <cmath>
 
 #include "abstractStreamReader.h"
-#include "avPacket.h"
-#include "bitStream.h"
-#include "limits.h"
 #include "vodCoreException.h"
 
 using namespace std;
@@ -16,27 +13,29 @@ using namespace std;
 #endif
 /////////////////////////////////////
 
-double av_int2dbl(int64_t v)
+double av_int2dbl(const uint64_t v)
 {
     if (v + v > 0xFFEULL << 52)
         return 0;  // 0.0/0.0;
-    return ldexp((double)((v & ((1LL << 52) - 1)) + (1LL << 52)) * (v >> 63 | 1), (v >> 52 & 0x7FF) - 1075);
+    return ldexp(static_cast<double>(((v & (1LL << 52) - 1) + (1LL << 52)) * (v >> 63 | 1)),
+                 static_cast<int>(v >> 52 & 0x7FF) - 1075);
 }
 
-float av_int2flt(int32_t v)
+float av_int2flt(const uint32_t v)
 {
     if (v + v > 0xFF000000U)
         return 0;  // 0.0/0.0;
-    return ldexp((float)((v & 0x7FFFFF) + (1 << 23)) * (v >> 31 | 1), (v >> 23 & 0xFF) - 150);
+    return ldexp(static_cast<float>(((v & 0x7FFFFF) + (1 << 23)) * (v >> 31 | 1)),
+                 static_cast<int>(v >> 23 & 0xFF) - 150);
 }
 
 IOContextDemuxer::IOContextDemuxer(const BufferedReaderManager& readManager)
     : tracks(), m_readManager(readManager), m_lastReadRez(0)
 {
     m_lastProcessedBytes = 0;
-    m_bufferedReader = (const_cast<BufferedReaderManager&>(m_readManager)).getReader("");
+    m_bufferedReader = m_readManager.getReader("");
     m_readerID = m_bufferedReader->createReader(TS_FRAME_SIZE);
-    m_curPos = m_bufEnd = 0;
+    m_curPos = m_bufEnd = nullptr;
     m_processedBytes = 0;
     m_isEOF = false;
     num_tracks = 0;
@@ -66,60 +65,39 @@ int IOContextDemuxer::get_byte()
     return *m_curPos++;
 }
 
-unsigned int IOContextDemuxer::get_be16()
-{
-    unsigned int val;
-    val = get_byte() << 8;
-    val |= get_byte();
-    return val;
-}
+uint16_t IOContextDemuxer::get_be16() { return static_cast<uint16_t>(get_byte() << 8 | get_byte()); }
 
-unsigned int IOContextDemuxer::get_be24()
-{
-    unsigned int val;
-    val = get_be16() << 8;
-    val |= get_byte();
-    return val;
-}
-unsigned int IOContextDemuxer::get_be32()
-{
-    unsigned int val;
-    val = get_be16() << 16;
-    val |= get_be16();
-    return val;
-}
+int IOContextDemuxer::get_be24() { return get_be16() << 8 | get_byte(); }
 
-uint64_t IOContextDemuxer::get_be64()
-{
-    uint64_t val;
-    val = (uint64_t)get_be32() << 32;
-    val |= (uint64_t)get_be32();
-    return val;
-}
+unsigned int IOContextDemuxer::get_be32() { return get_be16() << 16 | get_be16(); }
 
-bool IOContextDemuxer::url_fseek(int64_t offset)
+int64_t IOContextDemuxer::get_be64() { return static_cast<int64_t>(get_be32()) << 32 | get_be32(); }
+
+bool IOContextDemuxer::url_fseek(const int64_t offset)
 {
-    m_curPos = m_bufEnd = 0;
+    m_curPos = m_bufEnd = nullptr;
     m_isEOF = false;
     m_processedBytes = offset;
-    return ((BufferedFileReader*)m_bufferedReader)->gotoByte(m_readerID, offset);
+    return dynamic_cast<BufferedFileReader*>(m_bufferedReader)->gotoByte(m_readerID, offset);
 }
 
-uint32_t IOContextDemuxer::get_buffer(uint8_t* binary, int size)
+unsigned IOContextDemuxer::get_buffer(uint8_t* binary, unsigned size)
 {
     uint32_t readedBytes = 0;
     int readRez = 0;
     uint8_t* dst = binary;
-    uint8_t* dstEnd = dst + size;
+    const uint8_t* dstEnd = dst + size;
+
     if (m_curPos < m_bufEnd)
     {
-        int copyLen = min((int)(m_bufEnd - m_curPos), size);
+        const unsigned copyLen = min(static_cast<unsigned>(m_bufEnd - m_curPos), size);
         memcpy(dst, m_curPos, copyLen);
         dst += copyLen;
         m_curPos += copyLen;
         m_processedBytes += copyLen;
         size -= copyLen;
     }
+
     while (dst < dstEnd)
     {
         uint8_t* data = m_bufferedReader->readBlock(m_readerID, readedBytes, readRez);
@@ -128,30 +106,41 @@ uint32_t IOContextDemuxer::get_buffer(uint8_t* binary, int size)
 
         m_curPos = data + 188;
         m_bufEnd = m_curPos + readedBytes;
-        int copyLen = min((int)(m_bufEnd - m_curPos), size);
+        if (readedBytes == 0)
+            break;
+        const unsigned copyLen = min(readedBytes, size);
         memcpy(dst, m_curPos, copyLen);
         dst += copyLen;
         m_curPos += copyLen;
         size -= copyLen;
         m_processedBytes += copyLen;
-        if (readedBytes == 0)
-            break;
     }
-    return (uint32_t)(dst - binary);
+    return static_cast<uint32_t>(dst - binary);
 }
 
-void IOContextDemuxer::skip_bytes(uint64_t size)
+void IOContextDemuxer::skip_bytes(const uint64_t size)
 {
+    if (size == 0)
+        return;
     uint32_t readedBytes = 0;
     int readRez = 0;
     uint64_t skipLeft = size;
+
     if (m_curPos < m_bufEnd)
     {
-        uint64_t copyLen = min((uint64_t)(m_bufEnd - m_curPos), skipLeft);
+        const uint64_t copyLen = min((uint64_t)(m_bufEnd - m_curPos), skipLeft);
         skipLeft -= copyLen;
         m_curPos += copyLen;
         m_processedBytes += copyLen;
     }
+    /*
+    while (skipLeft > 4LL * m_fileBlockSize)
+    {
+        m_bufferedReader->seek(m_readerID, m_fileBlockSize);
+        m_processedBytes += m_fileBlockSize;
+        skipLeft -= m_fileBlockSize;
+    }
+    */
     while (skipLeft > 0)
     {
         uint8_t* data = m_bufferedReader->readBlock(m_readerID, readedBytes, readRez);
@@ -159,46 +148,43 @@ void IOContextDemuxer::skip_bytes(uint64_t size)
             m_bufferedReader->notify(m_readerID, readedBytes);
         m_curPos = data + 188;
         m_bufEnd = m_curPos + readedBytes;
-        uint64_t copyLen = min((uint64_t)(m_bufEnd - m_curPos), skipLeft);
+        if (readedBytes == 0)
+            break;
+        const uint64_t copyLen = min((uint64_t)readedBytes, skipLeft);
         m_curPos += copyLen;
         m_processedBytes += copyLen;
         skipLeft -= copyLen;
-        if (readedBytes == 0)
-            break;
     }
 }
 
 void IOContextDemuxer::setFileIterator(FileNameIterator* itr)
 {
-    auto br = dynamic_cast<BufferedReader*>(m_bufferedReader);
+    const auto br = dynamic_cast<BufferedReader*>(m_bufferedReader);
     if (br)
         br->setFileIterator(itr, m_readerID);
-    else if (itr != 0)
-        THROW(ERR_COMMON, "Can not set file iterator. Reader does not support bufferedReader interface.");
+    else if (itr != nullptr)
+        THROW(ERR_COMMON, "Can not set file iterator. Reader does not support bufferedReader interface.")
 }
 
-uint64_t IOContextDemuxer::getDemuxedSize() { return 0; }
+int64_t IOContextDemuxer::getDemuxedSize() { return 0; }
 
 unsigned int IOContextDemuxer::get_le16()
 {
-    unsigned int val;
-    val = get_byte();
+    unsigned int val = get_byte();
     val |= get_byte() << 8;
     return val;
 }
 
 unsigned int IOContextDemuxer::get_le24()
 {
-    unsigned int val;
-    val = get_le16();
+    unsigned int val = get_le16();
     val |= get_byte() << 16;
     return val;
 }
 
 unsigned int IOContextDemuxer::get_le32()
 {
-    unsigned int val;
-    val = get_le16();
+    unsigned int val = get_le16();
     val |= get_le16() << 16;
     return val;
 }

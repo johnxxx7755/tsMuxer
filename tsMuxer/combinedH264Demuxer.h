@@ -2,12 +2,10 @@
 #define COMBINED_H264_DEMUXER_H
 
 #include <map>
-#include <set>
 #include <string>
 
-#include "BufferedReader.h"
 #include "abstractDemuxer.h"
-#include "abstractreader.h"
+#include "abstractReader.h"
 #include "bufferedReaderManager.h"
 #include "subTrackFilter.h"
 
@@ -15,7 +13,7 @@ class CombinedH264Reader
 {
    public:
     CombinedH264Reader();
-    virtual ~CombinedH264Reader() {}
+    virtual ~CombinedH264Reader() = default;
 
    protected:
     enum class ReadState
@@ -26,17 +24,17 @@ class CombinedH264Reader
         Both
     };
 
-    int getPrefixLen(const uint8_t* pos, const uint8_t* end);
-    void addDataToPrimary(const uint8_t* data, const uint8_t* dataEnd, DemuxedData& demuxedData, int64_t& discardSize);
+    static int getPrefixLen(const uint8_t* pos, const uint8_t* end);
+    void addDataToPrimary(const uint8_t* data, const uint8_t* dataEnd, DemuxedData& demuxedData,
+                          int64_t& discardSize) const;
     void addDataToSecondary(const uint8_t* data, const uint8_t* dataEnd, DemuxedData& demuxedData,
-                            int64_t& discardSize);
+                            int64_t& discardSize) const;
     ReadState detectStreamByNal(const uint8_t* data, const uint8_t* dataEnd);
     void fillPids(const PIDSet& acceptedPIDs, int pid);
 
-   protected:
     bool m_firstDemuxCall;
 
-    int m_mvcSPS;
+    unsigned m_mvcSPS;
     MemoryBlock m_tmpBuffer;
     ReadState m_state;
     int m_mvcStreamIndex;
@@ -44,34 +42,34 @@ class CombinedH264Reader
     int m_demuxedPID;
 };
 
-class CombinedH264Demuxer : public AbstractDemuxer, public CombinedH264Reader
+class CombinedH264Demuxer final : public AbstractDemuxer, public CombinedH264Reader
 {
    public:
     CombinedH264Demuxer(const BufferedReaderManager& readManager, const char* streamName);
     ~CombinedH264Demuxer() override;
     void openFile(const std::string& streamName) override;
     void readClose() override;
-    uint64_t getDemuxedSize() override;
+    int64_t getDemuxedSize() override;
     int simpleDemuxBlock(DemuxedData& demuxedData, const PIDSet& acceptedPIDs, int64_t& discardSize) override;
-    void getTrackList(std::map<uint32_t, TrackInfo>& trackList) override;
-    int getLastReadRez() override { return m_lastReadRez; };
+    void getTrackList(std::map<int32_t, TrackInfo>& trackList) override;
+    int getLastReadRez() override { return m_lastReadRez; }
     void setFileIterator(FileNameIterator* itr) override;
 
-    bool isPidFilterSupported() const override { return true; }
+    [[nodiscard]] bool isPidFilterSupported() const override { return true; }
 
    private:
     const BufferedReaderManager& m_readManager;
     AbstractReader* m_bufferedReader;
     int m_readerID;
     int m_lastReadRez;
-    uint64_t m_dataProcessed;
+    int64_t m_dataProcessed;
 };
 
-class CombinedH264Filter : public SubTrackFilter, public CombinedH264Reader
+class CombinedH264Filter final : public SubTrackFilter, public CombinedH264Reader
 {
    public:
     CombinedH264Filter(int demuxedPID);
-    ~CombinedH264Filter() override {}
+    ~CombinedH264Filter() override = default;
     int demuxPacket(DemuxedData& demuxedData, const PIDSet& acceptedPIDs, AVPacket& avPacket) override;
 };
 

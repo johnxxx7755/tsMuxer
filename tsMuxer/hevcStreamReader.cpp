@@ -10,13 +10,12 @@
 
 using namespace std;
 
-static const int MAX_SLICE_HEADER = 64;
+static constexpr int MAX_SLICE_HEADER = 64;
 
 HEVCStreamReader::HEVCStreamReader()
-    : MPEGStreamReader(),
-      m_vps(0),
-      m_sps(0),
-      m_pps(0),
+    : m_vps(nullptr),
+      m_sps(nullptr),
+      m_pps(nullptr),
       m_hdr(new HevcHdrUnit()),
       m_slice(new HevcSliceHeader()),
       m_firstFrame(true),
@@ -43,7 +42,7 @@ HEVCStreamReader::~HEVCStreamReader()
     delete m_slice;
 }
 
-CheckStreamRez HEVCStreamReader::checkStream(uint8_t* buffer, int len)
+CheckStreamRez HEVCStreamReader::checkStream(uint8_t* buffer, const int len)
 {
     CheckStreamRez rez;
 
@@ -52,8 +51,10 @@ CheckStreamRez HEVCStreamReader::checkStream(uint8_t* buffer, int len)
     {
         if (*nal & 0x80)
             return rez;  // invalid nal
-        auto nalType = (HevcUnit::NalType)((*nal >> 1) & 0x3f);
+        const auto nalType = static_cast<HevcUnit::NalType>((*nal >> 1) & 0x3f);
         uint8_t* nextNal = NALUnit::findNALWithStartCode(nal, end, true);
+        if (!m_eof && nextNal == end)
+            break;
 
         switch (nalType)
         {
@@ -128,7 +129,7 @@ CheckStreamRez HEVCStreamReader::checkStream(uint8_t* buffer, int len)
 
         rez.codecInfo = hevcCodecInfo;
         rez.streamDescr = m_sps->getDescription();
-        size_t frSpsPos = rez.streamDescr.find("Frame rate: not found");
+        const size_t frSpsPos = rez.streamDescr.find("Frame rate: not found");
         if (frSpsPos != string::npos)
             rez.streamDescr = rez.streamDescr.substr(0, frSpsPos) + string(" ") + m_vps->getDescription();
     }
@@ -136,16 +137,16 @@ CheckStreamRez HEVCStreamReader::checkStream(uint8_t* buffer, int len)
     return rez;
 }
 
-int HEVCStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdmvDescriptors)
+int HEVCStreamReader::getTSDescriptor(uint8_t* dstBuff, const bool blurayMode, const bool hdmvDescriptors)
 {
     if (m_firstFrame)
-        CheckStreamRez rez = checkStream(m_buffer, (int)(m_bufEnd - m_buffer));
+        CheckStreamRez rez = checkStream(m_buffer, static_cast<int>(m_bufEnd - m_buffer));
 
     int lenDoviDesc = 0;
     if (!blurayMode && m_hdr->isDVRPU)
     {
         // 'DOVI' registration descriptor
-        *dstBuff++ = (uint8_t)TSDescriptorTag::REGISTRATION;
+        *dstBuff++ = static_cast<uint8_t>(TSDescriptorTag::REGISTRATION);
         *dstBuff++ = 4;  // descriptor length
         *dstBuff++ = 'D';
         *dstBuff++ = 'O';
@@ -157,18 +158,21 @@ int HEVCStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hd
     if (hdmvDescriptors)
     {
         // 'HDMV' registration descriptor
-        *dstBuff++ = (uint8_t)TSDescriptorTag::HDMV;  // descriptor tag
-        *dstBuff++ = 8;                               // descriptor length
-        memcpy(dstBuff, "HDMV\xff", 5);               // HDMV + stuffing byte
-        dstBuff += 5;
+        *dstBuff++ = static_cast<uint8_t>(TSDescriptorTag::HDMV);  // descriptor tag
+        *dstBuff++ = 8;                                            // descriptor length
+        *dstBuff++ = 'H';
+        *dstBuff++ = 'D';
+        *dstBuff++ = 'M';
+        *dstBuff++ = 'V';
+        *dstBuff++ = 0xff;  // stuffing byte
 
-        *dstBuff++ = (uint8_t)StreamType::VIDEO_H265;  // stream_conding_type
-        int video_format, frame_rate_index, aspect_ratio_index;
+        *dstBuff++ = static_cast<uint8_t>(StreamType::VIDEO_H265);  // stream_conding_type
+        uint8_t video_format, frame_rate_index, aspect_ratio_index;
         M2TSStreamInfo::blurayStreamParams(getFPS(), getInterlaced(), getStreamWidth(), getStreamHeight(),
-                                           (int)getStreamAR(), &video_format, &frame_rate_index, &aspect_ratio_index);
+                                           getStreamAR(), &video_format, &frame_rate_index, &aspect_ratio_index);
 
-        *dstBuff++ = (video_format << 4) + frame_rate_index;
-        *dstBuff++ = (aspect_ratio_index << 4) + 0xf;
+        *dstBuff++ = static_cast<uint8_t>(video_format << 4 | frame_rate_index);
+        *dstBuff++ = static_cast<uint8_t>(aspect_ratio_index << 4 | 0xf);
     }
     else
     {
@@ -177,28 +181,24 @@ int HEVCStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hd
         for (uint8_t* nal = NALUnit::findNextNAL(m_buffer, m_bufEnd); nal < m_bufEnd - 4;
              nal = NALUnit::findNextNAL(nal, m_bufEnd))
         {
-            auto nalType = (HevcUnit::NalType)((*nal >> 1) & 0x3f);
-            uint8_t* nextNal = NALUnit::findNALWithStartCode(nal, m_bufEnd, true);
+            const auto nalType = static_cast<HevcUnit::NalType>((*nal >> 1) & 0x3f);
+            const uint8_t* nextNal = NALUnit::findNALWithStartCode(nal, m_bufEnd, true);
 
             if (nalType == HevcUnit::NalType::SPS)
             {
-                int toDecode = FFMIN(sizeof(tmpBuffer) - 8, (unsigned)(nextNal - nal));
+                const int toDecode = FFMIN(sizeof(tmpBuffer) - 8, (unsigned)(nextNal - nal));
                 NALUnit::decodeNAL(nal, nal + toDecode, tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
         }
 
-        *dstBuff++ = (int)TSDescriptorTag::HEVC;
+        *dstBuff++ = static_cast<int>(TSDescriptorTag::HEVC);
         *dstBuff++ = 13;  // descriptor length
         memcpy(dstBuff, tmpBuffer + 3, 12);
         dstBuff += 12;
         // flags temporal_layer_subset, HEVC_still_present,
         // HEVC_24hr_picture_present, HDR_WCG unspecified
-        *dstBuff = 0x0f;
-
-        if (!m_sps->sub_pic_hrd_params_present_flag)
-            *dstBuff |= 0x10;
-        dstBuff++;
+        *dstBuff++ = m_sps->sub_pic_hrd_params_present_flag ? 0x0f : 0x1f;
 
         /* HEVC_timing_and_HRD_descriptor
         // mandatory for interlaced video only
@@ -231,14 +231,14 @@ int HEVCStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hd
     return (hdmvDescriptors ? 10 : 15) + lenDoviDesc;
 }
 
-int HEVCStreamReader::setDoViDescriptor(uint8_t* dstBuff)
+int HEVCStreamReader::setDoViDescriptor(uint8_t* dstBuff) const
 {
-    bool isDVBL = (V3_flags & NON_DV_TRACK) == 0;
+    const bool isDVBL = (V3_flags & BL_TRACK) == 0;
     if (!isDVBL)
         m_hdr->isDVEL = true;
 
-    int width = getStreamWidth();
-    auto pixelRate = (uint32_t)(width * getStreamHeight() * getFPS());
+    unsigned width = getStreamWidth();
+    auto pixelRate = static_cast<uint32_t>(width * getStreamHeight() * getFPS());
 
     if (!isDVBL && V3_flags & FOUR_K)
     {
@@ -295,6 +295,7 @@ int HEVCStreamReader::setDoViDescriptor(uint8_t* dstBuff)
             default:  // unspecified, assumed DV IPT
                 profile = 5;
                 compatibility = 0;
+                V3_flags |= BL_NOTCOMPAT;
             }
         }
     }
@@ -366,20 +367,20 @@ int HEVCStreamReader::setDoViDescriptor(uint8_t* dstBuff)
 
 void HEVCStreamReader::updateStreamFps(void* nalUnit, uint8_t* buff, uint8_t* nextNal, int)
 {
-    int oldNalSize = (int)(nextNal - buff);
+    const int oldNalSize = static_cast<int>(nextNal - buff);
     m_vpsSizeDiff = 0;
-    auto vps = (HevcVpsUnit*)nalUnit;
+    const auto vps = static_cast<HevcVpsUnit*>(nalUnit);
     vps->setFPS(m_fps);
-    auto tmpBuffer = new uint8_t[vps->nalBufferLen() + 16];
-    int newSpsLen = vps->serializeBuffer(tmpBuffer, tmpBuffer + vps->nalBufferLen() + 16);
+    const auto tmpBuffer = new uint8_t[vps->nalBufferLen() + 16];
+    const int newSpsLen = vps->serializeBuffer(tmpBuffer, tmpBuffer + vps->nalBufferLen() + 16);
     if (newSpsLen == -1)
-        THROW(ERR_COMMON, "Not enough buffer");
+        THROW(ERR_COMMON, "Not enough buffer")
 
     if (m_bufEnd && newSpsLen != oldNalSize)
     {
         m_vpsSizeDiff = newSpsLen - oldNalSize;
         if (m_bufEnd + m_vpsSizeDiff > m_tmpBuffer + TMP_BUFFER_SIZE)
-            THROW(ERR_COMMON, "Not enough buffer");
+            THROW(ERR_COMMON, "Not enough buffer")
         memmove(nextNal + m_vpsSizeDiff, nextNal, m_bufEnd - nextNal);
         m_bufEnd += m_vpsSizeDiff;
     }
@@ -388,9 +389,9 @@ void HEVCStreamReader::updateStreamFps(void* nalUnit, uint8_t* buff, uint8_t* ne
     delete[] tmpBuffer;
 }
 
-int HEVCStreamReader::getStreamWidth() const { return m_sps ? m_sps->pic_width_in_luma_samples : 0; }
+unsigned HEVCStreamReader::getStreamWidth() const { return m_sps ? m_sps->pic_width_in_luma_samples : 0; }
 
-int HEVCStreamReader::getStreamHeight() const { return m_sps ? m_sps->pic_height_in_luma_samples : 0; }
+unsigned HEVCStreamReader::getStreamHeight() const { return m_sps ? m_sps->pic_height_in_luma_samples : 0; }
 
 int HEVCStreamReader::getStreamHDR() const
 {
@@ -402,12 +403,30 @@ double HEVCStreamReader::getStreamFPS(void* curNalUnit)
     double fps = 0;
     if (m_vps)
         fps = m_vps->getFPS();
-    if (fps == 0 && m_sps)
+    if (fps == 0.0 && m_sps)
         fps = m_sps->getFPS();
     return fps;
 }
 
-bool HEVCStreamReader::isSlice(HevcUnit::NalType nalType) const
+bool HEVCStreamReader::skipNal(uint8_t* nal)
+{
+    const auto nalType = static_cast<HevcUnit::NalType>((*nal >> 1) & 0x3f);
+
+    if (nalType == HevcUnit::NalType::FD)
+        return true;
+
+    if ((nalType == HevcUnit::NalType::EOS || nalType == HevcUnit::NalType::EOB))
+    {
+        if (!m_eof || m_bufEnd - nal > 4)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool HEVCStreamReader::isSlice(const HevcUnit::NalType nalType) const
 {
     if (!m_sps || !m_vps || !m_pps)
         return false;
@@ -415,7 +434,7 @@ bool HEVCStreamReader::isSlice(HevcUnit::NalType nalType) const
            (nalType >= HevcUnit::NalType::BLA_W_LP && nalType <= HevcUnit::NalType::RSV_IRAP_VCL23);
 }
 
-bool HEVCStreamReader::isSuffix(HevcUnit::NalType nalType) const
+bool HEVCStreamReader::isSuffix(const HevcUnit::NalType nalType) const
 {
     if (!m_sps || !m_vps || !m_pps)
         return false;
@@ -429,7 +448,7 @@ void HEVCStreamReader::incTimings()
 {
     if (m_totalFrameNum++ > 0)
         m_curDts += m_pcrIncPerFrame;
-    int delta = m_frameNum - m_fullPicOrder;
+    const int delta = m_frameNum - m_fullPicOrder;
     m_curPts = m_curDts - delta * m_pcrIncPerFrame;
     m_frameNum++;
     m_firstFrame = false;
@@ -442,7 +461,7 @@ void HEVCStreamReader::incTimings()
     }
 }
 
-int HEVCStreamReader::toFullPicOrder(HevcSliceHeader* slice, int pic_bits)
+int HEVCStreamReader::toFullPicOrder(const HevcSliceHeader* slice, const unsigned pic_bits)
 {
     if (slice->isIDR())
     {
@@ -452,7 +471,7 @@ int HEVCStreamReader::toFullPicOrder(HevcSliceHeader* slice, int pic_bits)
     }
     else
     {
-        int range = 1 << pic_bits;
+        const int range = 1 << pic_bits;
 
         if (slice->pic_order_cnt_lsb < m_prevPicOrder && m_prevPicOrder - slice->pic_order_cnt_lsb >= range / 2)
             m_picOrderMsb += range;
@@ -471,7 +490,7 @@ void HEVCStreamReader::storeBuffer(MemoryBlock& dst, const uint8_t* data, const 
     while (dataEnd > data && dataEnd[-1] == 0) dataEnd--;
     if (dataEnd > data)
     {
-        dst.resize((int)(dataEnd - data));
+        dst.resize(static_cast<int>(dataEnd - data));
         memcpy(dst.data(), data, dataEnd - data);
     }
 }
@@ -483,17 +502,16 @@ int HEVCStreamReader::intDecodeNAL(uint8_t* buff)
     m_spsPpsFound = false;
     m_lastIFrame = false;
 
-    uint8_t* prevPos = 0;
+    const uint8_t* prevPos = nullptr;
     uint8_t* curPos = buff;
     uint8_t* nextNal = NALUnit::findNextNAL(curPos, m_bufEnd);
-    uint8_t* nextNalWithStartCode;
 
     if (!m_eof && nextNal == m_bufEnd)
         return NOT_ENOUGH_BUFFER;
 
     while (curPos < m_bufEnd)
     {
-        auto nalType = (HevcUnit::NalType)((*curPos >> 1) & 0x3f);
+        const auto nalType = static_cast<HevcUnit::NalType>((*curPos >> 1) & 0x3f);
         if (isSlice(nalType))
         {
             if (curPos[2] & 0x80)  // slice.first_slice
@@ -504,16 +522,14 @@ int HEVCStreamReader::intDecodeNAL(uint8_t* buff)
                     incTimings();
                     return 0;
                 }
-                else
-                {  // first slice of current frame
-                    m_slice->decodeBuffer(curPos, FFMIN(curPos + MAX_SLICE_HEADER, nextNal));
-                    rez = m_slice->deserialize(m_sps, m_pps);
-                    if (rez)
-                        return rez;  // not enough buffer or error
-                    if (nalType >= HevcUnit::NalType::BLA_W_LP)
-                        m_lastIFrame = true;
-                    m_fullPicOrder = toFullPicOrder(m_slice, m_sps->log2_max_pic_order_cnt_lsb);
-                }
+                // first slice of current frame
+                m_slice->decodeBuffer(curPos, FFMIN(curPos + MAX_SLICE_HEADER, nextNal));
+                rez = m_slice->deserialize(m_sps, m_pps);
+                if (rez)
+                    return rez;  // not enough buffer or error
+                if (nalType >= HevcUnit::NalType::BLA_W_LP)
+                    m_lastIFrame = true;
+                m_fullPicOrder = toFullPicOrder(m_slice, m_sps->log2_max_pic_order_cnt_lsb);
             }
             sliceFound = true;
         }
@@ -526,7 +542,7 @@ int HEVCStreamReader::intDecodeNAL(uint8_t* buff)
                 return 0;
             }
 
-            nextNalWithStartCode = nextNal[-4] == 0 ? nextNal - 4 : nextNal - 3;
+            uint8_t* nextNalWithStartCode = nextNal[-4] == 0 ? nextNal - 4 : nextNal - 3;
 
             switch (nalType)
             {
@@ -587,11 +603,10 @@ int HEVCStreamReader::intDecodeNAL(uint8_t* buff)
         m_lastDecodedPos = m_bufEnd;
         return 0;
     }
-    else
-        return NEED_MORE_DATA;
+    return NEED_MORE_DATA;
 }
 
-uint8_t* HEVCStreamReader::writeNalPrefix(uint8_t* curPos)
+uint8_t* HEVCStreamReader::writeNalPrefix(uint8_t* curPos) const
 {
     if (!m_shortStartCodes)
         *curPos++ = 0;
@@ -601,12 +616,12 @@ uint8_t* HEVCStreamReader::writeNalPrefix(uint8_t* curPos)
     return curPos;
 }
 
-uint8_t* HEVCStreamReader::writeBuffer(MemoryBlock& srcData, uint8_t* dstBuffer, uint8_t* dstEnd)
+uint8_t* HEVCStreamReader::writeBuffer(MemoryBlock& srcData, uint8_t* dstBuffer, const uint8_t* dstEnd) const
 {
     if (srcData.isEmpty())
         return dstBuffer;
-    int bytesLeft = (int)(dstEnd - dstBuffer);
-    int requiredBytes = (int)srcData.size() + 3 + (m_shortStartCodes ? 0 : 1);
+    const int bytesLeft = static_cast<int>(dstEnd - dstBuffer);
+    const int requiredBytes = static_cast<int>(srcData.size()) + 3 + (m_shortStartCodes ? 0 : 1);
     if (bytesLeft < requiredBytes)
         return dstBuffer;
 
@@ -623,8 +638,8 @@ int HEVCStreamReader::writeAdditionData(uint8_t* dstBuffer, uint8_t* dstEnd, AVP
 
     if (avPacket.size > 4 && avPacket.size < dstEnd - dstBuffer)
     {
-        int offset = avPacket.data[2] == 1 ? 3 : 4;
-        auto nalType = (HevcUnit::NalType)((avPacket.data[offset] >> 1) & 0x3f);
+        const int offset = avPacket.data[2] == 1 ? 3 : 4;
+        const auto nalType = static_cast<HevcUnit::NalType>((avPacket.data[offset] >> 1) & 0x3f);
         if (nalType == HevcUnit::NalType::AUD)
         {
             // place delimiter at first place
@@ -635,7 +650,7 @@ int HEVCStreamReader::writeAdditionData(uint8_t* dstBuffer, uint8_t* dstEnd, AVP
         }
     }
 
-    bool needInsSpsPps = m_firstFileFrame && !(avPacket.flags & AVPacket::IS_SPS_PPS_IN_GOP);
+    const bool needInsSpsPps = m_firstFileFrame && !(avPacket.flags & AVPacket::IS_SPS_PPS_IN_GOP);
     if (needInsSpsPps)
     {
         avPacket.flags |= AVPacket::IS_SPS_PPS_IN_GOP;
@@ -646,5 +661,5 @@ int HEVCStreamReader::writeAdditionData(uint8_t* dstBuffer, uint8_t* dstEnd, AVP
     }
 
     m_firstFileFrame = false;
-    return (int)(curPos - dstBuffer);
+    return static_cast<int>(curPos - dstBuffer);
 }

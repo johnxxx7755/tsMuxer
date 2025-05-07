@@ -15,11 +15,11 @@ CONFIG += c++17 strict_c++ lrelease embed_translations
 HEADERS += tsmuxerwindow.h lang_codes.h muxForm.h checkboxedheaderview.h \
            codecinfo.h fontsettingstablemodel.h
 SOURCES += main.cpp tsmuxerwindow.cpp muxForm.cpp checkboxedheaderview.cpp \
-           fontsettingstablemodel.cpp
+           fontsettingstablemodel.cpp lang_codes.cpp
 FORMS += tsmuxerwindow.ui muxForm.ui
 
 RESOURCES += images.qrc
-TRANSLATIONS = translations/tsmuxergui_en.ts translations/tsmuxergui_ru.ts translations/tsmuxergui_fr.ts translations/tsmuxergui_zh.ts translations/tsmuxergui_de.ts translations/tsmuxergui_he.ts
+TRANSLATIONS = translations/tsmuxergui_en.ts translations/tsmuxergui_ru.ts translations/tsmuxergui_fr.ts translations/tsmuxergui_zh.ts translations/tsmuxergui_de.ts translations/tsmuxergui_he.ts translations/tsmuxergui_es.ts
 win32 {
   RC_FILE += icon.rc
 }

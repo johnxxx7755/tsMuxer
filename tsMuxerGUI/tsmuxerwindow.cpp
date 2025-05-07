@@ -150,7 +150,7 @@ QString unquoteStr(QString val)
 bool isVideoCodec(const QString &displayName)
 {
     return displayName == "H.264" || displayName == "MVC" || displayName == "VC-1" || displayName == "MPEG-2" ||
-           displayName == "HEVC";
+           displayName == "HEVC" || displayName == "VVC";
 }
 
 QString floatToTime(double time, char msSeparator = '.')
@@ -289,6 +289,7 @@ void initLanguageComboBox(QComboBox *comboBox)
     comboBox->addItem(QString::fromUtf8("简体中文"), "zh");
     comboBox->addItem(QString::fromUtf8("Deutsch"), "de");
     comboBox->addItem(QString::fromUtf8("עִברִית"), "he");
+    comboBox->addItem(QString::fromUtf8("Español"), "es");
     comboBox->setCurrentIndex(-1);  // makes sure currentIndexChanged() is emitted when reading settings.
 }
 
@@ -371,7 +372,7 @@ TsMuxerWindow::TsMuxerWindow()
     for (int i = 0; i <= 3600; i += 5 * 60) ui->memoChapters->insertPlainText(floatToTime(i, '.') + '\n');
 
     mSaveDialogFilter = TS_SAVE_DIALOG_FILTER();
-    const static int colWidths[] = {28, 200, 62, 38, 10};
+    const static int colWidths[] = {31, 200, 62, 62, 10};
     for (unsigned i = 0u; i < sizeof(colWidths) / sizeof(int); ++i)
         ui->trackLV->horizontalHeader()->resizeSection(i, colWidths[i]);
     ui->trackLV->setWordWrap(false);
@@ -384,6 +385,9 @@ TsMuxerWindow::TsMuxerWindow()
     {
         ui->fontSettingsTableView->setRowHeight(i, 20);
     }
+
+    langCodesModel = new LangCodesModel(this);
+    ui->langComboBox->setModel(langCodesModel);
 
     void (QSpinBox::*spinBoxValueChanged)(int) = &QSpinBox::valueChanged;
     void (QDoubleSpinBox::*doubleSpinBoxValueChanged)(double) = &QDoubleSpinBox::valueChanged;
@@ -487,17 +491,6 @@ TsMuxerWindow::TsMuxerWindow()
 
     ui->label_Donate->installEventFilter(this);
 
-    ui->langComboBox->addItem("und (Undetermined)");
-    ui->langComboBox->addItem("--------- common ---------");
-    for (auto &&lang : shortLangList)
-    {
-        ui->langComboBox->addItem(QString("%1 (%2)").arg(lang.code).arg(lang.lang), QString::fromUtf8(lang.code));
-    }
-    ui->langComboBox->addItem("---------- all ----------");
-    for (auto &&lang : fullLangList)
-    {
-        ui->langComboBox->addItem(QString("%1 (%2)").arg(lang.code).arg(lang.lang), QString::fromUtf8(lang.code));
-    }
     trackLVItemSelectionChanged();
 
     ui->trackSplitter->setStretchFactor(0, 10);
@@ -547,14 +540,18 @@ void TsMuxerWindow::onTsMuxerCodecInfoReceived()
             }
             codecInfo->descr = "Can't detect codec";
             codecInfo->displayName = procStdOutput[i].mid(QString("Stream type: ").length());
-            // TODO: fix insertSEI option. Until then ,  the option is not default for H264/MVC
-            // if (codecInfo->displayName != "H.264" && codecInfo->displayName != "MVC")
+            /* Add SEI and SPS only with AVC and MVC (currently disabled)
+            if (codecInfo->displayName != "H.264" && codecInfo->displayName != "MVC")
             {
                 codecInfo->addSEIMethod = 0;
                 codecInfo->addSPS = false;
             }
-            if (codecInfo->displayName == "HEVC" && !ui->checkBoxV3->isChecked())
+            */
+            if (codecInfo->displayName == "HEVC")
                 ui->checkBoxV3->setChecked(true);
+            else if (codecInfo->displayName == "H.264" || codecInfo->displayName == "MVC" ||
+                     codecInfo->displayName == "MPEG-2" || codecInfo->displayName == "VC-1")
+                ui->checkBoxV3->setChecked(false);
             lastTrackID = 0;
         }
         p = procStdOutput[i].indexOf("Stream ID:   ");
@@ -566,21 +563,18 @@ void TsMuxerWindow::onTsMuxerCodecInfoReceived()
         p = procStdOutput[i].indexOf("Stream lang: ");
         if (p >= 0)
             codecInfo->lang = procStdOutput[i].mid(QString("Stream lang: ").length());
-
         p = procStdOutput[i].indexOf("Stream delay: ");
         if (p >= 0)
         {
             tmpStr = procStdOutput[i].mid(QString("Stream delay: ").length());
             codecInfo->delay = tmpStr.toInt();
         }
-
         p = procStdOutput[i].indexOf("subTrack: ");
         if (p >= 0)
         {
             tmpStr = procStdOutput[i].mid(QString("subTrack: ").length());
             codecInfo->subTrack = tmpStr.toInt();
         }
-
         p = procStdOutput[i].indexOf("Secondary: 1");
         if (p == 0)
         {
@@ -1013,6 +1007,9 @@ void TsMuxerWindow::trackLVItemSelectionChanged()
     {
         if (isVideoCodec(codecInfo->displayName))
         {
+            codecInfo->addSEIMethod = ui->comboBoxSEI->currentIndex();
+            codecInfo->addSPS = ui->checkBoxSPS->isChecked();
+
             ui->tabWidgetTracks->addTab(ui->tabSheetVideo, TI_DEFAULT_TAB_NAME());
 
             ui->checkFPS->setChecked(codecInfo->checkFPS);
@@ -1056,8 +1053,9 @@ void TsMuxerWindow::trackLVItemSelectionChanged()
                 ui->dtsDwnConvert->setText(tr("Downconvert E-AC3 to AC3"));
             else
                 ui->dtsDwnConvert->setText(tr("Downconvert HD audio"));
-            ui->dtsDwnConvert->setEnabled(codecInfo->displayName == "DTS-HD" || codecInfo->displayName == "TRUE-HD" ||
-                                          codecInfo->displayName == "E-AC3 (DD+)");
+            ui->dtsDwnConvert->setEnabled(!codecInfo->descr.contains("(core 0Kbps)") &&
+                                          (codecInfo->displayName == "DTS-HD" || codecInfo->displayName == "TRUE-HD" ||
+                                           codecInfo->displayName == "E-AC3 (DD+)"));
             ui->secondaryCheckBox->setEnabled(codecInfo->descr.contains("(DTS Express)") ||
                                               codecInfo->descr.contains("(DTS Express 24bit)") ||
                                               codecInfo->displayName == "E-AC3 (DD+)");
@@ -1195,8 +1193,10 @@ void TsMuxerWindow::continueAddFile()
             {
                 if (firstWarn)
                 {
-                    msgBox.setText(
-                        tr("Track %1 was not recognized and ignored. File name: \"%2\"").arg(i).arg(newFileName));
+                    msgBox.setText(tr("Track %1 (TrackID %2) was not recognized and ignored. File name: \"%3\"")
+                                       .arg(i)
+                                       .arg(codecList[i].trackID)
+                                       .arg(newFileName));
                     msgBox.exec();
                     firstWarn = false;
                 }
@@ -1253,7 +1253,6 @@ void TsMuxerWindow::continueAddFile()
         item->setCheckState(info.enabledByDefault ? Qt::Checked : Qt::Unchecked);
         item->setData(Qt::UserRole, reinterpret_cast<qlonglong>(new QtvCodecInfo(info)));
         ui->trackLV->setCurrentItem(item);
-
         ui->trackLV->setItem(newTrackRowIdx, 0, item);
         item = new QTableWidgetItem(newFileName);
         item->setFlags(item->flags() & (~Qt::ItemIsEditable));
@@ -1278,7 +1277,6 @@ void TsMuxerWindow::continueAddFile()
                                       true);
         ui->trackLV->setCurrentCell(firstAddedIndex, 0);
     }
-
     QString displayName = newFileName;
     if (fileDuration > 0)
         displayName += QString(" (%1)").arg(floatToTime(fileDuration));
@@ -1337,7 +1335,6 @@ void TsMuxerWindow::updateCustomChapters()
             chaptersSet << qint64((chapter + offset) * 1000000);
         prevDuration = item->data(FileDurationRole).toDouble();
     }
-
     ui->memoChapters->clear();
     QList<qint64> mergedChapterList = chaptersSet.values();
     std::sort(std::begin(mergedChapterList), std::end(mergedChapterList));
@@ -1592,29 +1589,31 @@ bool TsMuxerWindow::isDiskOutput() const
 
 QString TsMuxerWindow::getMuxOpts()
 {
-    QString rez = "MUXOPT --no-pcr-on-video-pid ";
+    QString rez = "MUXOPT --no-pcr-on-video-pid";
     if (ui->checkBoxNewAudioPes->isChecked())
-        rez += "--new-audio-pes --hdmv-descriptors ";
+        rez += " --new-audio-pes";
+    else
+        rez += " --no-hdmv-descriptors";
     if (ui->radioButtonBluRay->isChecked())
-        rez += (ui->checkBoxV3->isChecked() ? "--blu-ray-v3 " : "--blu-ray ");
+        rez += (ui->checkBoxV3->isChecked() ? " --blu-ray-v3" : " --blu-ray");
     else if (ui->radioButtonBluRayISO->isChecked())
     {
-        rez += (ui->checkBoxV3->isChecked() ? "--blu-ray-v3 " : "--blu-ray ");
+        rez += (ui->checkBoxV3->isChecked() ? " --blu-ray-v3" : " --blu-ray");
         if (!ui->DiskLabelEdit->text().isEmpty())
-            rez += QString("--label=\"%1\" ").arg(ui->DiskLabelEdit->text());
+            rez += QString(" --label=\"%1\" ").arg(ui->DiskLabelEdit->text());
     }
     else if (ui->radioButtonAVCHD->isChecked())
-        rez += "--avchd ";
+        rez += " --avchd";
     else if (ui->radioButtonDemux->isChecked())
-        rez += "--demux ";
+        rez += " --demux";
     if (ui->checkBoxCBR->isChecked())
-        rez += "--cbr --bitrate=" + QString::number(ui->editCBRBitrate->value(), 'f', 3);
+        rez += " --cbr --bitrate=" + QString::number(ui->editCBRBitrate->value(), 'f', 3);
     else
     {
-        rez += "--vbr ";
+        rez += " --vbr";
         if (ui->checkBoxRVBR->isChecked())
         {
-            rez += QString("--minbitrate=") + QString::number(ui->editMinBitrate->value(), 'f', 3);
+            rez += QString(" --minbitrate=") + QString::number(ui->editMinBitrate->value(), 'f', 3);
             rez += QString(" --maxbitrate=") + QString::number(ui->editMaxBitrate->value(), 'f', 3);
         }
     }
@@ -1753,19 +1752,16 @@ QString TsMuxerWindow::getSrtParams()
 
     for (int i = 0; i < ui->trackLV->rowCount(); ++i)
     {
-        if (ui->trackLV->item(i, 0)->checkState() == Qt::Checked)
-        {
-            auto codecInfo = getCodecInfo(i);
-            if (!codecInfo)
-                continue;
+        auto codecInfo = getCodecInfo(i);
+        if (!codecInfo)
+            continue;
 
-            if (isVideoCodec(codecInfo->displayName))
-            {
-                rez += QString(",video-width=") + QString::number(codecInfo->width);
-                rez += QString(",video-height=") + QString::number(codecInfo->height);
-                rez += QString(",fps=") + fpsTextToFpsStr(codecInfo->fpsText);
-                return rez;
-            }
+        if (isVideoCodec(codecInfo->displayName))
+        {
+            rez += QString(",video-width=") + QString::number(std::min(codecInfo->width, 1920));
+            rez += QString(",video-height=") + QString::number(std::min(codecInfo->height, 1080));
+            rez += QString(",fps=") + fpsTextToFpsStr(codecInfo->fpsText);
+            return rez;
         }
     }
     rez += ",video-width=1920,video-height=1080,fps=23.976";
@@ -2089,6 +2085,7 @@ void TsMuxerWindow::onRemoveBtnClick()
     ui->inputFilesLV->takeItem(idx);
     if (idx >= ui->inputFilesLV->count())
         idx--;
+
     if (delMplsM2ts)
     {
         while (idx < ui->inputFilesLV->count())
@@ -2103,6 +2100,7 @@ void TsMuxerWindow::onRemoveBtnClick()
                 break;
         }
     }
+
     if (ui->inputFilesLV->count() > 0)
         ui->inputFilesLV->setCurrentRow(idx);
     updateCustomChapters();
@@ -2164,6 +2162,7 @@ void TsMuxerWindow::deleteTrack(int idx)
         }
         updateNum();
     }
+
     updateMaxOffsets();
     updateMetaLines();
     ui->moveupBtn->setEnabled(ui->trackLV->currentItem() != 0);
@@ -2309,9 +2308,9 @@ void TsMuxerWindow::RadioButtonMuxClick()
     if (outFileNameDisableChange)
         return;
     if (ui->radioButtonDemux->isChecked())
-        ui->buttonMux->setText(tr("Sta&rt demuxing"));
+        ui->buttonMux->setText(tr("Start demuxing"));
     else
-        ui->buttonMux->setText(tr("Sta&rt muxing"));
+        ui->buttonMux->setText(tr("Start muxing"));
     ui->checkBoxNewAudioPes->setChecked(!ui->radioButtonTS->isChecked());
     ui->checkBoxNewAudioPes->setEnabled(ui->radioButtonTS->isChecked() || ui->radioButtonM2TS->isChecked());
     outFileNameDisableChange = true;
@@ -2541,6 +2540,7 @@ void TsMuxerWindow::changeEvent(QEvent *event)
     {
         ui->retranslateUi(this);
         fontSettingsModel->onLanguageChanged();
+        langCodesModel->onLanguageChanged();
     }
     QWidget::changeEvent(event);
 }
@@ -2704,6 +2704,9 @@ void TsMuxerWindow::writeSettings()
     settings->setValue("language", ui->languageSelectComboBox->currentText());
     settings->setValue("windowSize", size());
 
+    settings->setValue("addSEIMethod", ui->comboBoxSEI->currentIndex());
+    settings->setValue("addSPS", ui->checkBoxSPS->isChecked());
+
     settings->endGroup();
 
     settings->beginGroup("subtitles");
@@ -2794,6 +2797,9 @@ bool TsMuxerWindow::readGeneralSettings(const QString &prefix)
 
     ui->radioButtonOutoutInInput->setChecked(settings->value("outputToInputFolder").toBool());
     ui->radioButtonStoreOutput->setChecked(!ui->radioButtonOutoutInInput->isChecked());
+
+    ui->comboBoxSEI->setCurrentIndex(settings->value("addSEIMethod").toInt());
+    ui->checkBoxSPS->setChecked(settings->value("addSPS").toBool());
 
     settings->endGroup();
     return true;

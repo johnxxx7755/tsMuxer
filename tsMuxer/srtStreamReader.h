@@ -1,49 +1,49 @@
-#ifndef __SRT_STREAM_READER
-#define __SRT_STREAM_READER
+#ifndef SRT_STREAM_READER_
+#define SRT_STREAM_READER_
 
 #include <queue>
 
 #include "abstractStreamReader.h"
 #include "avCodecs.h"
 #include "avPacket.h"
-#include "psgStreamReader.h"
+#include "pgsStreamReader.h"
 #include "textSubtitles.h"
 #include "utf8Converter.h"
 
-class SRTStreamReader : public AbstractStreamReader
+class SRTStreamReader final : public AbstractStreamReader
 {
    public:
     SRTStreamReader();
     ~SRTStreamReader() override;
     int readPacket(AVPacket& avPacket) override;
     int flushPacket(AVPacket& avPacket) override { return m_dstSubCodec->flushPacket(avPacket); }
-    void setBuffer(uint8_t* data, int dataLen, bool lastBlock = false) override;
-    uint64_t getProcessedSize() override { return m_processedSize; }
+    void setBuffer(uint8_t* data, uint32_t dataLen, bool lastBlock = false) override;
+    int64_t getProcessedSize() override { return m_processedSize; }
     CheckStreamRez checkStream(uint8_t* buffer, int len, ContainerType containerType, int containerDataType,
                                int containerStreamIndex);
     const CodecInfo& getCodecInfo() override { return pgsCodecInfo; }
-    void setStreamIndex(int index) override
+    void setStreamIndex(const int index) override
     {
         m_streamIndex = index;
         m_dstSubCodec->setStreamIndex(index);
     }
-    void setDemuxMode(bool value) override
+    void setDemuxMode(const bool value) override
     {
         m_demuxMode = value;
-        PGSStreamReader* pgsReader = dynamic_cast<PGSStreamReader*>(m_dstSubCodec);
+        const auto pgsReader = dynamic_cast<PGSStreamReader*>(m_dstSubCodec);
         if (pgsReader)
             pgsReader->setDemuxMode(value);
     }
-    void setVideoInfo(int width, int height, double fps)
+    void setVideoInfo(const uint16_t width, const uint16_t height, const double fps) const
     {
         m_srtRender->setVideoInfo(width, height, fps);
-        PGSStreamReader* pgsReader = dynamic_cast<PGSStreamReader*>(m_dstSubCodec);
+        const auto pgsReader = dynamic_cast<PGSStreamReader*>(m_dstSubCodec);
         if (pgsReader)
             pgsReader->setVideoInfo(0, 0, fps);
     }
-    void setFont(const text_subtitles::Font& font) { m_srtRender->m_textRender->setFont(font); }
+    void setFont(const text_subtitles::Font& font) const { m_srtRender->m_textRender->setFont(font); }
     void setAnimation(const text_subtitles::TextAnimation& animation);
-    void setBottomOffset(int offset) { m_srtRender->setBottomOffset(offset); }
+    void setBottomOffset(const int offset) const { m_srtRender->setBottomOffset(offset); }
 
    protected:
     int writeAdditionData(uint8_t* dstBuffer, uint8_t* dstEnd, AVPacket& avPacket,
@@ -61,10 +61,10 @@ class SRTStreamReader : public AbstractStreamReader
     AbstractStreamReader* m_dstSubCodec;
     text_subtitles::TextToPGSConverter* m_srtRender;
     bool m_lastBlock;
-    int parseText(uint8_t* dataStart, int len);
+    int parseText(uint8_t* dataStart, size_t len);
     std::vector<uint8_t> m_tmpBuffer;
     std::queue<std::string> m_sourceText;
-    std::queue<uint32_t> m_origSize;
+    std::queue<int32_t> m_origSize;
     std::string m_renderedText;
     long m_splitterOfs;
     uint16_t m_short_R;
@@ -82,9 +82,9 @@ class SRTStreamReader : public AbstractStreamReader
     ParseState m_state;
     uint8_t* renderNextMessage(uint32_t& renderedLen);
     bool parseTime(const std::string& text);
-    std::string detectUTF8Lang(uint8_t* buffer, int len);
-    bool detectSrcFormat(uint8_t* dataStart, int len, int& prefixLen);
-    bool strOnlySpace(std::string& str);
+    static std::string detectUTF8Lang(uint8_t* buffer, int len);
+    bool detectSrcFormat(const uint8_t* dataStart, size_t len, int& prefixLen);
+    static bool strOnlySpace(const std::string& str);
 };
 
 #endif

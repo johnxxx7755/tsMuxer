@@ -1,24 +1,22 @@
 #include <io.h>
 #include <windows.h>
 
-#include <sstream>
-
 #include "../directory.h"
 #include "../file.h"
 
-void throwFileError()
+[[noreturn]] void throwFileError()
 {
     LPVOID msgBuf = nullptr;
-    DWORD dw = GetLastError();
+    const DWORD dw = GetLastError();
 
-    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, NULL, dw,
-                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR)&msgBuf, 0, NULL);
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM, nullptr, dw,
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), reinterpret_cast<LPTSTR>(&msgBuf), 0, nullptr);
 
-    std::string str((char*)msgBuf);
+    const std::string str(static_cast<char*>(msgBuf));
     throw std::runtime_error(str);
 }
 
-void makeWin32OpenFlags(unsigned int oflag, DWORD* const dwDesiredAccess, DWORD* const dwCreationDisposition,
+void makeWin32OpenFlags(const unsigned int oflag, DWORD* const dwDesiredAccess, DWORD* const dwCreationDisposition,
                         DWORD* const dwShareMode)
 {
     *dwDesiredAccess = 0;
@@ -45,9 +43,10 @@ void makeWin32OpenFlags(unsigned int oflag, DWORD* const dwDesiredAccess, DWORD*
         *dwCreationDisposition = CREATE_NEW;
 }
 
-File::File() : AbstractOutputStream(), m_impl(INVALID_HANDLE_VALUE), m_name(""), m_pos(0) {}
+File::File() : AbstractOutputStream(), m_impl(INVALID_HANDLE_VALUE), m_pos(0) {}
 
-File::File(const char* fName, unsigned int oflag, unsigned int systemDependentFlags) /* throw ( std::runtime_error ) */
+File::File(const char* fName, const unsigned int oflag,
+           unsigned int systemDependentFlags) /* throw ( std::runtime_error ) */
     : AbstractOutputStream(), m_impl(INVALID_HANDLE_VALUE), m_name(fName), m_pos(0)
 {
     DWORD dwDesiredAccess = 0;
@@ -61,18 +60,18 @@ File::File(const char* fName, unsigned int oflag, unsigned int systemDependentFl
         else
             systemDependentFlags = FILE_FLAG_RANDOM_ACCESS;
     }
-    m_impl = CreateFile(toWide(fName).data(), dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition,
-                        systemDependentFlags, NULL);
+    m_impl = CreateFile(toWide(fName).data(), dwDesiredAccess, dwShareMode, nullptr, dwCreationDisposition,
+                        systemDependentFlags, nullptr);
     if (m_impl == INVALID_HANDLE_VALUE)
     {
         throwFileError();
     }
     else
     {
-        if (oflag & File::ofAppend)
+        if (oflag & ofAppend)
         {
             long hiword = 0;
-            DWORD newPointerLow = SetFilePointer(m_impl, 0, &hiword, FILE_END);
+            const DWORD newPointerLow = SetFilePointer(m_impl, 0, &hiword, FILE_END);
             if (newPointerLow == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR)
                 throwFileError();
         }
@@ -81,11 +80,12 @@ File::File(const char* fName, unsigned int oflag, unsigned int systemDependentFl
 
 File::~File()
 {
+    // TODO: fix use of virtual fucntion inside destructor
     if (isOpen())
         close();
 }
 
-bool File::open(const char* fName, unsigned int oflag, unsigned int systemDependentFlags)
+bool File::open(const char* fName, const unsigned int oflag, unsigned int systemDependentFlags)
 {
     m_name = fName;
     m_pos = 0;
@@ -102,25 +102,22 @@ bool File::open(const char* fName, unsigned int oflag, unsigned int systemDepend
             systemDependentFlags = FILE_FLAG_RANDOM_ACCESS;
     }
 
-    if ((oflag & File::ofOpenExisting) == 0)
+    if ((oflag & ofOpenExisting) == 0)
     {
         createDir(extractFileDir(fName), true);
     }
-    m_impl = CreateFile(toWide(fName).data(), dwDesiredAccess, dwShareMode, NULL, dwCreationDisposition,
-                        systemDependentFlags, NULL);
+    m_impl = CreateFile(toWide(fName).data(), dwDesiredAccess, dwShareMode, nullptr, dwCreationDisposition,
+                        systemDependentFlags, nullptr);
     if (m_impl == INVALID_HANDLE_VALUE)
     {
         return false;
     }
-    else
+    if (oflag & ofAppend)
     {
-        if (oflag & File::ofAppend)
-        {
-            long hiword = 0;
-            DWORD newPointerLow = SetFilePointer(m_impl, 0, &hiword, FILE_END);
-            if (newPointerLow == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR)
-                throwFileError();
-        }
+        long hiword = 0;
+        const DWORD newPointerLow = SetFilePointer(m_impl, 0, &hiword, FILE_END);
+        if (newPointerLow == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR)
+            throwFileError();
     }
 
     return true;
@@ -129,33 +126,33 @@ bool File::open(const char* fName, unsigned int oflag, unsigned int systemDepend
 bool File::close()
 {
     // sync();
-    BOOL res = CloseHandle(m_impl);
+    const BOOL res = CloseHandle(m_impl);
     m_impl = INVALID_HANDLE_VALUE;
     return res != 0;
 }
 
-int File::read(void* buffer, uint32_t count) const
+int File::read(void* buffer, const uint32_t count) const
 {
     if (!isOpen())
         return -1;
 
     DWORD bytesRead = 0;
-    BOOL res = ReadFile(m_impl, buffer, count, &bytesRead, NULL);
+    const BOOL res = ReadFile(m_impl, buffer, count, &bytesRead, nullptr);
     if (!res)
         return -1;
 
     m_pos += bytesRead;
 
-    return (int)bytesRead;
+    return static_cast<int>(bytesRead);
 }
 
-int File::write(const void* buffer, uint32_t count)
+int File::write(const void* buffer, const uint32_t count)
 {
     if (!isOpen())
         return -1;
 
     DWORD bytesWritten = 0;
-    BOOL res = WriteFile(m_impl, buffer, count, &bytesWritten, NULL);
+    const BOOL res = WriteFile(m_impl, buffer, count, &bytesWritten, nullptr);
     if (!res)
     {
         throwFileError();
@@ -165,17 +162,17 @@ int File::write(const void* buffer, uint32_t count)
 
     m_pos += bytesWritten;
 
-    return (int)bytesWritten;
+    return static_cast<int>(bytesWritten);
 }
 
 void File::sync() { FlushFileBuffers(m_impl); }
 
 bool File::isOpen() const { return m_impl != INVALID_HANDLE_VALUE; }
 
-bool File::size(uint64_t* const fileSize) const
+bool File::size(int64_t* const fileSize) const
 {
     DWORD highDw;
-    DWORD lowDw = GetFileSize(m_impl, &highDw);
+    const DWORD lowDw = GetFileSize(m_impl, &highDw);
     if ((lowDw == INVALID_FILE_SIZE) && (GetLastError() != NO_ERROR))
         return false;
     *fileSize = highDw;
@@ -184,12 +181,12 @@ bool File::size(uint64_t* const fileSize) const
     return true;
 }
 
-uint64_t File::seek(int64_t offset, SeekMethod whence)
+int64_t File::seek(const int64_t offset, const SeekMethod whence) const
 {
     if (!isOpen())
-        return (uint64_t)-1;
+        return -1;
 
-    DWORD moveMethod = 0;
+    DWORD moveMethod = FILE_BEGIN;
     switch (whence)
     {
     case SeekMethod::smBegin:
@@ -203,26 +200,25 @@ uint64_t File::seek(int64_t offset, SeekMethod whence)
         break;
     }
 
-    LONG distanceToMoveLow = (uint32_t)(offset & 0xffffffff);
-    LONG distanceToMoveHigh = (uint32_t)((offset & 0xffffffff00000000ull) >> 32);
+    const LONG distanceToMoveLow = static_cast<LONG>(offset);
+    LONG distanceToMoveHigh = static_cast<LONG>(offset >> 32);
 
-    DWORD newPointerLow = SetFilePointer(m_impl, distanceToMoveLow, &distanceToMoveHigh, moveMethod);
+    const DWORD newPointerLow = SetFilePointer(m_impl, distanceToMoveLow, &distanceToMoveHigh, moveMethod);
     if (newPointerLow == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR)
-        return (uint64_t)-1;
+        return -1;
 
-    m_pos = newPointerLow | ((uint64_t)distanceToMoveHigh << 32);
+    m_pos = static_cast<int64_t>(distanceToMoveHigh) << 32 | newPointerLow;
 
     return m_pos;
 }
 
-bool File::truncate(uint64_t newFileSize)
+bool File::truncate(const uint64_t newFileSize) const
 {
-    LONG distanceToMoveLow = (uint32_t)(newFileSize & 0xffffffff);
-    LONG distanceToMoveHigh = (uint32_t)((newFileSize & 0xffffffff00000000ull) >> 32);
-    DWORD newPointerLow = SetFilePointer(m_impl, distanceToMoveLow, &distanceToMoveHigh, FILE_BEGIN);
-    int errCode = GetLastError();
-    if ((newPointerLow == INVALID_SET_FILE_POINTER) && (errCode != NO_ERROR))
-        // return false;
+    const LONG distanceToMoveLow = static_cast<LONG>(newFileSize);
+    LONG distanceToMoveHigh = static_cast<LONG>(newFileSize >> 32);
+    const DWORD newPointerLow = SetFilePointer(m_impl, distanceToMoveLow, &distanceToMoveHigh, FILE_BEGIN);
+    const DWORD errCode = GetLastError();
+    if (newPointerLow == INVALID_SET_FILE_POINTER && errCode != NO_ERROR)
         throwFileError();
 
     return SetEndOfFile(m_impl) > 0;

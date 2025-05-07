@@ -6,7 +6,7 @@
 int MpegAudioStreamReader::getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdmvDescriptors)
 {
     uint8_t* frame = findFrame(m_buffer, m_bufEnd);
-    if (frame == 0)
+    if (frame == nullptr)
         return 0;
     int skipBytes = 0;
     int skipBeforeBytes = 0;
@@ -23,7 +23,7 @@ int MpegAudioStreamReader::decodeFrame(uint8_t* buff, uint8_t* end, int& skipByt
     return mp3DecodeFrame(buff, end);
 }
 
-double MpegAudioStreamReader::getFrameDurationNano()
+double MpegAudioStreamReader::getFrameDuration()
 {
     // return (INTERNAL_PTS_FREQ * m_samples) / m_sample_rate;
     double rez = (1.0 * INTERNAL_PTS_FREQ * m_samples) / m_sample_rate;
@@ -37,7 +37,7 @@ const std::string MpegAudioStreamReader::getStreamInfo()
     std::ostringstream str;
     str << "Bitrate: " << m_bit_rate / 1000 << "Kbps  ";
     str << "Sample Rate: " << m_sample_rate / 1000 << "KHz  ";
-    str << "Channels: " << (int)m_nb_channels << "  ";
-    str << "Layer: " << m_layer;
+    str << "Channels: " << m_nb_channels << "  ";
+    str << "Layer: " << static_cast<int>(m_layer);
     return str.str();
 }

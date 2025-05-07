@@ -1,17 +1,15 @@
-#ifndef __AC3_STREAM_READER_H
-#define __AC3_STREAM_READER_H
-
-#include <deque>
+#ifndef AC3_STREAM_READER_H_
+#define AC3_STREAM_READER_H_
 
 #include "abstractDemuxer.h"
 #include "ac3Codec.h"
 #include "avPacket.h"
 #include "simplePacketizerReader.h"
 
-class AC3StreamReader : public SimplePacketizerReader, public AC3Codec
+class AC3StreamReader final : public SimplePacketizerReader, public AC3Codec
 {
    public:
-    AC3StreamReader() : SimplePacketizerReader(), m_useNewStyleAudioPES(false)
+    AC3StreamReader() : m_useNewStyleAudioPES(false)
     {
         m_downconvertToAC3 = m_true_hd_mode = false;
         m_state = AC3State::stateDecodeAC3;
@@ -21,19 +19,19 @@ class AC3StreamReader : public SimplePacketizerReader, public AC3Codec
         m_demuxedTHDSamples = 0;
         m_totalTHDSamples = 0;
         m_nextAc3Time = 0;
-    };
+    }
     int getTSDescriptor(uint8_t* dstBuff, bool blurayMode, bool hdmvDescriptors) override;
-    void setNewStyleAudioPES(bool value) { m_useNewStyleAudioPES = value; }
-    void setTestMode(bool value) override { AC3Codec::setTestMode(value); }
-    int getFreq() override { return AC3Codec::m_sample_rate; }
+    void setNewStyleAudioPES(const bool value) { m_useNewStyleAudioPES = value; }
+    void setTestMode(const bool value) override { AC3Codec::setTestMode(value); }
+    int getFreq() override { return m_sample_rate; }
     int getAltFreq() override
     {
         if (m_downconvertToAC3)
-            return AC3Codec::m_sample_rate;
-        else
-            return mlp.m_subType == MlpSubType::stUnknown ? AC3Codec::m_sample_rate : mlp.m_samplerate;
+            return m_sample_rate;
+
+        return mlp.m_subType == MlpSubType::stUnknown ? m_sample_rate : mlp.m_samplerate;
     }
-    int getChannels() override { return AC3Codec::m_channels; }
+    uint8_t getChannels() override { return m_channels; }
     bool isPriorityData(AVPacket* packet) override;
     bool isIFrame(AVPacket* packet) override { return isPriorityData(packet); }
     bool isSecondary() override;
@@ -46,7 +44,7 @@ class AC3StreamReader : public SimplePacketizerReader, public AC3Codec
         return AC3Codec::decodeFrame(buff, end, skipBytes);
     }
     uint8_t* findFrame(uint8_t* buff, uint8_t* end) override { return AC3Codec::findFrame(buff, end); }
-    double getFrameDurationNano() override { return (double)AC3Codec::getFrameDurationNano(); }
+    double getFrameDuration() override { return static_cast<double>(AC3Codec::getFrameDuration()); }
     const CodecInfo& getCodecInfo() override { return AC3Codec::getCodecInfo(); }
     const std::string getStreamInfo() override { return AC3Codec::getStreamInfo(); }
     void writePESExtension(PESPacket* pesPacket, const AVPacket& avPacket) override;
@@ -55,7 +53,7 @@ class AC3StreamReader : public SimplePacketizerReader, public AC3Codec
     int flushPacket(AVPacket& avPacket) override;
     int readPacketTHD(AVPacket& avPacket);
 
-    bool needMPLSCorrection() const override;
+    [[nodiscard]] bool needMPLSCorrection() const override;
 
    private:
     bool m_useNewStyleAudioPES;
@@ -65,8 +63,8 @@ class AC3StreamReader : public SimplePacketizerReader, public AC3Codec
     MemoryBlock m_delayedAc3Buffer;
     AVPacket m_delayedAc3Packet;
     int m_demuxedTHDSamples;
-    uint64_t m_totalTHDSamples;
-    uint64_t m_nextAc3Time;
+    int64_t m_totalTHDSamples;
+    int64_t m_nextAc3Time;
 };
 
 #endif

@@ -1,23 +1,21 @@
 #include <fs/directory.h>
+#include <fs/systemlog.h>
 #include <fs/textfile.h>
 
-#include <algorithm>
 #include <iostream>
 #include <vector>
 
+#include <cmath>
 #include "blank_patterns.h"
 #include "blurayHelper.h"
 #include "convertUTF.h"
 #include "iso_writer.h"
-#include "math.h"
 #include "metaDemuxer.h"
 #include "mpegStreamReader.h"
 #include "muxerManager.h"
-#include "psgStreamReader.h"
+#include "pgsStreamReader.h"
 #include "singleFileMuxer.h"
-#include "textSubtitles.h"
 #include "tsMuxer.h"
-#include "utf8Converter.h"
 
 using namespace std;
 
@@ -26,22 +24,19 @@ BufferedReaderManager readManager(2, DEFAULT_FILE_BLOCK_SIZE, DEFAULT_FILE_BLOCK
 TSMuxerFactory tsMuxerFactory;
 SingleFileMuxerFactory singleFileMuxerFactory;
 
-static const char EXCEPTION_ERR_MSG[] =
+static constexpr char EXCEPTION_ERR_MSG[] =
     ". It does not have to be! Please contact application support team for more information.";
 
-// const static uint32_t BLACK_PL_NUM = 1900;
-// const static uint32_t BLACK_FILE_NUM = 1900;
-
-#define LTRACE2(level, msg)            \
-    {                                  \
-        {                              \
-            if (level <= LT_WARN)      \
-                cerr << msg;           \
-            else if (level == LT_INFO) \
-                cout << msg;           \
-            if (level <= LT_INFO)      \
-                sLastMsg = true;       \
-        }                              \
+#define LTRACE2(level, msg)              \
+    {                                    \
+        {                                \
+            if ((level) <= LT_WARN)      \
+                cerr << msg;             \
+            else if ((level) == LT_INFO) \
+                cout << msg;             \
+            if ((level) <= LT_INFO)      \
+                sLastMsg = true;         \
+        }                                \
     }
 DiskType checkBluRayMux(const char* metaFileName, int& autoChapterLen, vector<double>& customChaptersList,
                         int& firstMplsOffset, int& firstM2tsOffset, bool& insertBlankPL, int& blankNum,
@@ -58,36 +53,35 @@ DiskType checkBluRayMux(const char* metaFileName, int& autoChapterLen, vector<do
         if (strStartWith(str, "MUXOPT"))
         {
             vector<string> params = splitQuotedStr(str.c_str(), ' ');
-            for (unsigned i = 0; i < params.size(); i++)
+            for (const auto& param : params)
             {
-                vector<string> paramPair = splitStr(trimStr(params[i]).c_str(), '=');
-                if (paramPair.size() == 0)
+                vector<string> paramPair = splitStr(trimStr(param).c_str(), '=');
+                if (paramPair.empty())
                     continue;
                 if (paramPair[0] == "--auto-chapters")
                     autoChapterLen = strToInt32(paramPair[1].c_str()) * 60;
                 else if (paramPair[0] == "--custom-chapters" && paramPair.size() > 1)
                 {
                     vector<string> chapList = splitStr(paramPair[1].c_str(), ';');
-                    for (unsigned k = 0; k < chapList.size(); k++)
-                        customChaptersList.push_back(timeToFloat(chapList[k]));
+                    for (const string& chap : chapList) customChaptersList.push_back(timeToFloat(chap));
                 }
                 else if (paramPair[0] == "--mplsOffset")
                 {
                     firstMplsOffset = strToInt32(paramPair[1].c_str());
                     if (firstMplsOffset > 1999)
-                        THROW(ERR_COMMON, "Too large m2ts offset " << firstMplsOffset);
+                        THROW(ERR_COMMON, "Too large m2ts offset " << firstMplsOffset)
                 }
                 else if (paramPair[0] == "--blankOffset")
                 {
                     blankNum = strToInt32(paramPair[1].c_str());
                     if (blankNum > 1999)
-                        THROW(ERR_COMMON, "Too large black playlist offset " << blankNum);
+                        THROW(ERR_COMMON, "Too large black playlist offset " << blankNum)
                 }
                 else if (paramPair[0] == "--m2tsOffset")
                 {
                     firstM2tsOffset = strToInt32(paramPair[1].c_str());
                     if (firstM2tsOffset > 99999)
-                        THROW(ERR_COMMON, "Too large m2ts offset " << firstM2tsOffset);
+                        THROW(ERR_COMMON, "Too large m2ts offset " << firstM2tsOffset)
                 }
                 else if (paramPair[0] == "--insertBlankPL")
                     insertBlankPL = true;
@@ -117,12 +111,8 @@ DiskType checkBluRayMux(const char* metaFileName, int& autoChapterLen, vector<do
 
 void detectStreamReader(const char* fileName, MPLSParser* mplsParser, bool isSubMode)
 {
-    DetectStreamRez streamInfo = METADemuxer::DetectStreamReader(readManager, fileName, mplsParser == 0);
+    DetectStreamRez streamInfo = METADemuxer::DetectStreamReader(readManager, fileName, mplsParser == nullptr);
     vector<CheckStreamRez>& streams = streamInfo.streams;
-
-    std::vector<MPLSStreamInfo> pgStreams3D;
-    if (mplsParser && mplsParser->isDependStreamExist)
-        pgStreams3D = mplsParser->getPgStreams();
 
     for (unsigned i = 0; i < streams.size(); i++)
     {
@@ -202,21 +192,21 @@ void detectStreamReader(const char* fileName, MPLSParser* mplsParser, bool isSub
     }
 
     AVChapters& chapters = streamInfo.chapters;
-    if (chapters.size() > 0 || streamInfo.fileDurationNano > 0)
+    if (!chapters.empty() || streamInfo.fileDurationNano > 0)
         LTRACE(LT_INFO, 2, "");
     if (streamInfo.fileDurationNano)
-        LTRACE(LT_INFO, 2, "Duration: " << floatToTime(streamInfo.fileDurationNano / 1e9));
+        LTRACE(LT_INFO, 2, "Duration: " << floatToTime((double)streamInfo.fileDurationNano / 1e9));
     for (size_t j = 0; j < chapters.size(); j++)
     {
         uint64_t time = chapters[j].start;
         if (j % 5 == 0)
         {
             LTRACE(LT_INFO, 2, "");
-            LTRACE2(LT_INFO, "Marks: ");
+            LTRACE2(LT_INFO, "Marks: ")
         }
-        LTRACE2(LT_INFO, floatToTime(time / 1e9) << " ");
+        LTRACE2(LT_INFO, floatToTime((double)time / 1e9) << " ")
     }
-    if (chapters.size() > 0 || streamInfo.fileDurationNano > 0)
+    if (!chapters.empty() || streamInfo.fileDurationNano > 0)
         LTRACE(LT_INFO, 2, "");
 }
 
@@ -224,31 +214,30 @@ string getBlurayStreamDir(const string& mplsName)
 {
     string dirName = extractFileDir(mplsName);
     dirName = toNativeSeparators(dirName);
-    size_t tmp = dirName.substr(0, (size_t)(dirName.size() - 1)).find_last_of(getDirSeparator());
+    size_t tmp = dirName.substr(0, dirName.size() - 1).find_last_of(getDirSeparator());
     if (tmp != string::npos)
     {
         dirName = dirName.substr(0, tmp + 1);
         if (strEndWith(dirName, string("BACKUP") + getDirSeparator()))
         {
-            tmp = dirName.substr(0, (size_t)(dirName.size() - 1)).find_last_of(getDirSeparator());
+            tmp = dirName.substr(0, dirName.size() - 1).find_last_of(getDirSeparator());
             if (tmp == string::npos)
                 return "";
             dirName = dirName.substr(0, tmp + 1);
         }
         return dirName + string("STREAM") + getDirSeparator();
     }
-    else
-        return "";
+    return "";
 }
 
 void muxBlankPL(const string& appDir, BlurayHelper& blurayHelper, const PIDListMap& pidList, DiskType dt, int blankNum)
 {
-    int videoWidth = 1920;
-    int videoHeight = 1080;
+    unsigned videoWidth = 1920;
+    unsigned videoHeight = 1080;
     double fps = 23.976;
-    for (auto itr = pidList.begin(); itr != pidList.end(); ++itr)
+    for (const auto& [pid, si] : pidList)
     {
-        const PMTStreamInfo& streamInfo = itr->second;
+        const PMTStreamInfo& streamInfo = si;
         const auto streamReader = dynamic_cast<const MPEGStreamReader*>(streamInfo.m_codecReader);
         if (streamReader)
         {
@@ -288,13 +277,13 @@ void muxBlankPL(const string& appDir, BlurayHelper& blurayHelper, const PIDListM
     string tmpFileName = appDir + string("blank_") + std::to_string(fname_time) + string(".264");
     File file;
     if (!file.open(tmpFileName.c_str(), File::ofWrite))
-        THROW(ERR_COMMON, "can't create file " << tmpFileName);
+        THROW(ERR_COMMON, "can't create file " << tmpFileName)
     for (int i = 0; i < 3; ++i)
     {
         if (file.write(pattern, patternSize) != patternSize)
         {
             deleteFile(tmpFileName);
-            THROW(ERR_COMMON, "can't write data to file " << tmpFileName);
+            THROW(ERR_COMMON, "can't write data to file " << tmpFileName)
         }
     }
     file.close();
@@ -306,27 +295,27 @@ void muxBlankPL(const string& appDir, BlurayHelper& blurayHelper, const PIDListM
         muxerManager.parseMuxOpt("MUXOPT --no-pcr-on-video-pid --vbr --avchd --vbv-len=500");
         muxerManager.addStream("V_MPEG4/ISO/AVC", tmpFileName, videoParams);
         string dstFile = blurayHelper.m2tsFileName(blankNum);
-        muxerManager.doMux(dstFile.c_str(), &blurayHelper);
+        muxerManager.doMux(dstFile, &blurayHelper);
 
         auto tsMuxer = dynamic_cast<TSMuxer*>(muxerManager.getMainMuxer());
 
-        blurayHelper.createMPLSFile(tsMuxer, 0, 0, vector<double>(), dt, blankNum, false);
+        blurayHelper.createMPLSFile(tsMuxer, nullptr, 0, vector<double>(), dt, blankNum, false);
         blurayHelper.createCLPIFile(tsMuxer, blankNum, true);
     }
     deleteFile(tmpFileName);
 }
 
-void doTruncatedFile(const char* fileName, int64_t offset)
+void doTruncatedFile(const char* fileName, const int64_t offset)
 {
     File f;
     File outFile;
 
     f.open(fileName, File::ofRead);
-    std::string outName = std::string(fileName) + std::string(".back");
+    const std::string outName = std::string(fileName) + std::string(".back");
     outFile.open(outName.c_str(), File::ofWrite);
 
-    uint32_t bufSize = 1024 * 64;
-    auto buffer = new uint8_t[bufSize];
+    constexpr uint32_t bufSize = 1024 * 64;
+    const auto buffer = new uint8_t[bufSize];
     f.seek(offset);
     int readed = f.read(buffer, bufSize);
     while (readed > 0)
@@ -338,7 +327,7 @@ void doTruncatedFile(const char* fileName, int64_t offset)
 
 void showHelp()
 {
-    const char help[] = R"help(
+    constexpr char help[] = R"help(
 tsMuxeR is a simple program to mux video to TS/M2TS files or create BD disks.
 tsMuxeR does not use external filters (codecs).
 
@@ -487,71 +476,71 @@ Global additional parameters are placed in the first line of the META file,
 which must begin with the MUXOPT token.
 All parameters in this group start with two dashes:
 
---pcr-on-video-pid  Do not allocate a separate PID for PCR and use the existing
-                    video PID.
---new-audio-pes     Use bytes 0xfd instead of 0xbd for AC3, True-HD, DTS and
-                    DTS-HD. Activated automatically for BD muxing.
---hdmv-descriptors  Use HDMV descriptors instead of ITU-T H.222.0 | ISO/IEC 13818-1
-                    descriptors. Activated automatically for BD muxing.
---vbr               Use variable bitrate.
---minbitrate        Sets the lower limit of the VBR bitrate. If the stream has
-                    a smaller bitrate, NULL packets will be inserted to
-                    compensate.
---maxbitrate        The upper limit of the vbr bitrate.
---cbr               Muxing mode with a fixed bitrate. --vbr and --cbr must not
-                    be used together.
---vbv-len           The  length  of the  virtual  buffer  in milliseconds.  The
-                    default value  is 500.  Typically, this  option  is used
-                    together with --cbr. The parameter is similar to  the value
-                    of  vbv-buffer-size  in  the  x264  codec,  but  defined in
-                    milliseconds instead of kbit.
---no-asyncio        Do not  create  a separate thread  for writing. This option
-                    also disables the FILE_FLAG_NO_BUFFERING flag on Windows
-                    when writing.
-                    This option is deprecated.
---auto-chapters     Insert a chapter every <n> minutes. Used only in BD/AVCHD
-                    mode.
---custom-chapters   A semicolon delimited list of hh:mm:ss.zzz strings,
-                    representing the chapters' start times.
---demux             Run in demux mode : the selected audio and video tracks are
-                    stored as separate files. The output name must be a folder
-                    name. All selected effects (such as changing the level of
-                    a H264 stream) are processed. When demuxing, certain types
-                    of tracks are always changed :
-                    - Subtitles in a Presentation Graphic Stream are converted
-                      into sup format.
-                    - PCM audio is saved as WAV files.
---blu-ray           Mux as a BD disc. If the output file name is a folder, a
-                    Blu-Ray folder structure is created inside that folder.
-                    SSIF files for BD3D discs are not created in this case. If
-                    the output name has an .iso extension, then the disc is
-                    created directly as an image file.
---blu-ray-v3        As above - except mux to UHD BD discs.
---avchd             Mux to AVCHD disc.
---cut-start         Trim the beginning of the file. The value should be followed
-                    by the time unit : "ms" (milliseconds), "s" (seconds) or
-                    "min" (minutes).
---cut-end           Trim the end of the file. Same rules as --cut-start apply.
---split-duration    Split the output into several files, with each of them being
-                    <n> seconds long.
---split-size        Split the output into several files, with each of them
-                    having a given maximum size. KB, KiB, MB, MiB, GB and GiB
-                    are accepted as size units.
---right-eye         Use base video stream for right eye. Used for 3DBD only.
---start-time        Timestamp of the first video frame. May be defined as 45Khz
-                    clock (just a number) or as time in hh:mm:ss.zzz format.
---mplsOffset        The number of the first MPLS file.  Used for BD disc mode.
---m2tsOffset        The number of the first M2TS file.  Used for BD disc mode.
---insertBlankPL     Add an additional short playlist. Used for cropped video
-                    muxed to BD disc.
---blankOffset       Blank playlist number.
---label             Disk label when muxing to ISO.
---extra-iso-space   Allocate extra space in 64K units for ISO metadata (file
-                    and directory names). Normally, tsMuxeR allocates this space
-                    automatically, but if split condition generates a lot
-                    of small files, it may be required to define extra space.
---constant-iso-hdr  Generates an ISO header that does not depend on the program
-                    version or the current time. Not meant for normal usage.
+--no-pcr-on-video-pid Allocate a separate PID for PCR and do not use the existing
+                      video PID.
+--new-audio-pes       Use bytes 0xfd instead of 0xbd for AC3, True-HD, DTS and
+                      DTS-HD. Activated automatically for BD muxing.
+--no-hdmv-descriptors Use ITU-T H.222.0 | ISO/IEC 13818-1 descriptors instead of
+                      HDMV descriptors. Not activated for BD or AVCHD muxing.
+--vbr                 Use variable bitrate.
+--minbitrate          Sets the lower limit of the VBR bitrate. If the stream has
+                      a smaller bitrate, nullptr packets will be inserted to
+                      compensate.
+--maxbitrate          The upper limit of the vbr bitrate.
+--cbr                 Muxing mode with a fixed bitrate. --vbr and --cbr must not
+                      be used together.
+--vbv-len             The  length  of the  virtual  buffer  in milliseconds.  The
+                      default value  is 500.  Typically, this  option  is used
+                      together with --cbr. The parameter is similar to  the value
+                      of vbv-buffer-size  in  the  x264  codec,  but  defined in
+                      milliseconds instead of kbit.
+--no-asyncio          Do not  create  a separate thread  for writing. This option
+                      also disables the FILE_FLAG_NO_BUFFERING flag on Windows
+                      when writing.
+                      This option is deprecated.
+--auto-chapters       Insert a chapter every <n> minutes. Used only in BD/AVCHD
+                      mode.
+--custom-chapters     A semicolon delimited list of hh:mm:ss.zzz strings,
+                      representing the chapters' start times.
+--demux               Run in demux mode : the selected audio and video tracks are
+                      stored as separate files. The output name must be a folder
+                      name. All selected effects (such as changing the level of
+                      a H264 stream) are processed. When demuxing, certain types
+                      of tracks are always changed :
+                      - Subtitles in a Presentation Graphic Stream are converted
+                        into sup format.
+                      - PCM audio is saved as WAV files.
+--blu-ray             Mux as a BD disc. If the output file name is a folder, a
+                      Blu-Ray folder structure is created inside that folder.
+                      SSIF files for BD3D discs are not created in this case. If
+                      the output name has an .iso extension, then the disc is
+                      created directly as an image file.
+--blu-ray-v3          As above - except mux to UHD BD discs.
+--avchd               Mux to AVCHD disc.
+--cut-start           Trim the beginning of the file. The value should be followed
+                      by the time unit : "ms" (milliseconds), "s" (seconds) or
+                      "min" (minutes).
+--cut-end             Trim the end of the file. Same rules as --cut-start apply.
+--split-duration      Split the output into several files, with each of them being
+                      <n> seconds long.
+--split-size          Split the output into several files, with each of them
+                      having a given maximum size. KB, KiB, MB, MiB, GB and GiB
+                      are accepted as size units.
+--right-eye           Use base video stream for right eye. Used for 3DBD only.
+--start-time          Timestamp of the first video frame. May be defined as 45Khz
+                      clock (just a number) or as time in hh:mm:ss.zzz format.
+--mplsOffset          The number of the first MPLS file.  Used for BD disc mode.
+--m2tsOffset          The number of the first M2TS file.  Used for BD disc mode.
+--insertBlankPL       Add an additional short playlist. Used for cropped video
+                      muxed to BD disc.
+--blankOffset         Blank playlist number.
+--label               Disk label when muxing to ISO.
+--extra-iso-space     Allocate extra space in 64K units for ISO metadata (file
+                      and directory names). Normally, tsMuxeR allocates this space
+                      automatically, but if split condition generates a lot
+                      of small files, it may be required to define extra space.
+--constant-iso-hdr    Generates an ISO header that does not depend on the program
+                      version or the current time. Not meant for normal usage.
 )help";
     LTRACE(LT_INFO, 2, help);
 }
@@ -575,9 +564,9 @@ int main(int argc, char** argv)
     argv_vec.reserve(argv_utf8.size());
     for (auto&& s : argv_utf8)
     {
-        argv_vec.push_back(&s[0]);
+        argv_vec.push_back(s.data());
     }
-    argv = &argv_vec[0];
+    argv = argv_vec.data();
 #endif
     LTRACE(LT_INFO, 2, "tsMuxeR version " TSMUXER_VERSION << ". github.com/justdan96/tsMuxer");
     int firstMplsOffset = 0;
@@ -616,7 +605,7 @@ int main(int argc, char** argv)
                 std::string ssifExt = shortExt ? ".SIF" : ".ssif";
                 bool mode3D = mplsParser.isDependStreamExist;
                 bool switchToSsif = false;
-                if (mplsParser.m_playItems.size() > 0)
+                if (!mplsParser.m_playItems.empty())
                 {
                     MPLSPlayItem& item = mplsParser.m_playItems[0];
                     string itemName = streamDir + item.fileName + mediaExt;
@@ -654,7 +643,7 @@ int main(int argc, char** argv)
                     if (mode3D)
                         itemName = streamDir + string("SSIF") + getDirSeparator() + item.fileName + ".ssif";
                     else
-                        itemName = streamDir + item.fileName + mediaExt;  // 2d mode
+                        itemName = streamDir.append(item.fileName).append(mediaExt);  // 2d mode
 
                     LTRACE(LT_INFO, 2, "");
                     LTRACE(LT_INFO, 2, "File #" << strPadLeft(int64ToStr(i), 5, '0') << " name=" << itemName);
@@ -679,17 +668,17 @@ int main(int argc, char** argv)
                     for (; markIndex < mplsParser.m_marks.size(); markIndex++)
                     {
                         PlayListMark& curMark = mplsParser.m_marks[markIndex];
-                        if (curMark.m_playItemID > i)
+                        if (static_cast<unsigned>(curMark.m_playItemID) > i)
                             break;
                         uint64_t time = curMark.m_markTime - mplsParser.m_playItems[i].IN_time + prevFileOffset;
                         if (marksPerFile % 5 == 0)
                         {
                             if (marksPerFile > 0)
                                 LTRACE(LT_INFO, 2, "");
-                            LTRACE2(LT_INFO, "Marks: ");
+                            LTRACE2(LT_INFO, "Marks: ")
                         }
                         marksPerFile++;
-                        LTRACE2(LT_INFO, floatToTime(time / 45000.0) << " ");
+                        LTRACE2(LT_INFO, floatToTime((double)time / 45000.0) << " ")
                     }
                     if (marksPerFile > 0)
                         LTRACE(LT_INFO, 2, "");
@@ -697,7 +686,7 @@ int main(int argc, char** argv)
                 }
             }
             else
-                detectStreamReader(argv[1], 0, false);
+                detectStreamReader(argv[1], nullptr, false);
             cout << endl;
             return 0;
         }
@@ -756,8 +745,8 @@ int main(int argc, char** argv)
                 dstFile = blurayHelper.m2tsFileName(firstM2tsOffset);
             }
             if (muxerManager.getTrackCnt() == 0)
-                THROW(ERR_COMMON, "No tracks selected");
-            muxerManager.doMux(dstFile, dt != DiskType::NONE ? &blurayHelper : 0);
+                THROW(ERR_COMMON, "No tracks selected")
+            muxerManager.doMux(dstFile, dt != DiskType::NONE ? &blurayHelper : nullptr);
             if (dt != DiskType::NONE)
             {
                 blurayHelper.writeBluRayFiles(muxerManager, insertBlankPL, firstMplsOffset, blankNum, stereoMode);
@@ -784,12 +773,8 @@ int main(int argc, char** argv)
                     }
                 }
 
-                for (auto& i : customChapterList) i -= (double)muxerManager.getCutStart() / 1e9;
-                // createMPLSFile(dstDir, mainMuxer->getPidList(), *(mainMuxer->getFirstPts().begin()),
-                // *(mainMuxer->getLastPts().rbegin()),
-                //    autoChapterLen, customChapterList, dt, firstMplsOffset, firstM2tsOffset);
-
-                // allign last PTS between main and sub muxers
+                for (auto& i : customChapterList)
+                    i -= static_cast<double>(muxerManager.getCutStart()) / INTERNAL_PTS_FREQ;
 
                 if (subMuxer)
                     mainMuxer->alignPTS(subMuxer);
@@ -811,7 +796,7 @@ int main(int argc, char** argv)
             MuxerManager sMuxer(readManager, singleFileMuxerFactory);
             sMuxer.openMetaFile(argv[1]);
             if (sMuxer.getTrackCnt() == 0)
-                THROW(ERR_COMMON, "No tracks selected");
+                THROW(ERR_COMMON, "No tracks selected")
 
             // output path - is checked for invalid characters on our platform
             string dstFile = unquoteStr(argv[2]);
@@ -820,7 +805,7 @@ int main(int argc, char** argv)
                 throw runtime_error(string("Output filename is invalid: ") + dstFile);
 
             createDir(dstFile, true);
-            sMuxer.doMux(dstFile, 0);
+            sMuxer.doMux(dstFile, nullptr);
             LTRACE(LT_INFO, 2, "Demux complete.");
         }
         auto endTime = std::chrono::steady_clock::now();
@@ -829,13 +814,13 @@ int main(int argc, char** argv)
         auto minutes = std::chrono::duration_cast<std::chrono::minutes>(totalTime);
         if (muxMode)
         {
-            LTRACE2(LT_INFO, "Muxing time: ");
+            LTRACE2(LT_INFO, "Muxing time: ")
         }
         else
-            LTRACE2(LT_INFO, "Demuxing time: ");
+            LTRACE2(LT_INFO, "Demuxing time: ")
         if (minutes.count() > 0)
         {
-            LTRACE2(LT_INFO, minutes.count() << " min ");
+            LTRACE2(LT_INFO, minutes.count() << " min ")
             seconds -= minutes;
         }
         LTRACE(LT_INFO, 2, seconds.count() << " sec");
@@ -845,28 +830,28 @@ int main(int argc, char** argv)
     catch (runtime_error& e)
     {
         if (argc == 2)
-            LTRACE2(LT_ERROR, "Error: ");
-        LTRACE2(LT_ERROR, e.what());
+            LTRACE2(LT_ERROR, "Error: ")
+        LTRACE2(LT_ERROR, e.what())
         return -1;
     }
     catch (VodCoreException& e)
     {
         if (argc == 2)
-            LTRACE2(LT_ERROR, "Error: ");
+            LTRACE2(LT_ERROR, "Error: ")
         LTRACE(LT_ERROR, 2, e.m_errStr.c_str());
         return -2;
     }
     catch (BitStreamException& e)
     {
         if (argc == 2)
-            LTRACE2(LT_ERROR, "Error: ");
+            LTRACE2(LT_ERROR, "Error: ")
         LTRACE(LT_ERROR, 2, "Bitstream exception " << e.what() << EXCEPTION_ERR_MSG);
         return -3;
     }
     catch (...)
     {
         if (argc == 2)
-            LTRACE2(LT_ERROR, "Error: ");
+            LTRACE2(LT_ERROR, "Error: ")
         LTRACE(LT_ERROR, 2, "Unknnown exception" << EXCEPTION_ERR_MSG);
         return -4;
     }
